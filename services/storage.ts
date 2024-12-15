@@ -1,6 +1,7 @@
 import type { MonthSchedule } from '../types/schedule'
+import { join } from 'path'
 
-const STORAGE_PATH = import.meta.dir + '/data/schedule.json'
+const STORAGE_PATH = join(import.meta.dir, '..', 'data', 'schedule.json')
 
 export const loadSchedule = async (): Promise<MonthSchedule | null> => {
   try {
