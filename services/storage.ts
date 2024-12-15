@@ -1,6 +1,6 @@
 import type { WeekSchedule } from '../types/schedule'
 
-const STORAGE_PATH = import.meta.dir + '../data/schedule.json'
+const STORAGE_PATH = import.meta.dir + '/data/schedule.json'
 
 export const loadSchedule = async (): Promise<WeekSchedule | null> => {
   try {
