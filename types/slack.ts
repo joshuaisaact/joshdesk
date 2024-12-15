@@ -1,3 +1,4 @@
+import type { BlockAction, StaticSelectAction } from '@slack/bolt'
 import type { Block, KnownBlock } from '@slack/types'
 
 export interface HomeView {
@@ -21,4 +22,18 @@ export interface HomeView {
     text: string
     emoji?: boolean
   }
+}
+export interface SelectWeekAction extends BlockAction<StaticSelectAction> {
+  actions: [
+    StaticSelectAction & {
+      selected_option: {
+        text: {
+          type: 'plain_text'
+          text: string
+          emoji: boolean
+        }
+        value: string
+      }
+    },
+  ]
 }

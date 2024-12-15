@@ -5,9 +5,10 @@ import { appHomeOpenedHandler } from './events/app-home'
 import { officeCommandHandler } from './commands/office'
 import { homeButtonHandler, officeButtonHandler } from './interactions/buttons'
 import { generateBlocks } from './blocks/home'
-import type { HomeView } from './types/slack'
+import type { HomeView, SelectWeekAction } from './types/slack'
 import { setupWeeklyReset } from './utils/schedule-reset'
 
+// State
 let officeSchedule = createMonthSchedule()
 let currentWeek = 0
 
@@ -26,12 +27,17 @@ const app = new App({
   appToken: Bun.env.SLACK_APP_TOKEN,
 })
 
-// Commands
+// Event handlers
+app.event('app_home_opened', async (args) => {
+  await appHomeOpenedHandler(args, officeSchedule, currentWeek)
+})
+
+// Command handlers
 app.command('/office', async (args) => {
   await officeCommandHandler(args, officeSchedule)
 })
 
-// Interactive components (buttons, etc)
+// Interactive component handlers
 app.action<BlockAction>(/office_.*/, async (args) => {
   const updatedSchedule = await officeButtonHandler(args, officeSchedule)
   if (updatedSchedule) {
@@ -48,35 +54,21 @@ app.action<BlockAction>(/home_.*/, async (args) => {
   }
 })
 
-app.action('prev_week', async ({ ack, body, client }) => {
+app.action<SelectWeekAction>('select_week', async ({ ack, body, client }) => {
   await ack()
-  if (currentWeek > 0) currentWeek--
+  const selectedWeek = parseInt(body.actions[0].selected_option.value)
+  currentWeek = selectedWeek
+
   await client.views.publish({
     user_id: body.user.id,
     view: {
       type: 'home',
-      blocks: generateBlocks(officeSchedule, true, currentWeek),
+      blocks: generateBlocks(officeSchedule, true, selectedWeek),
     } as HomeView,
   })
 })
 
-app.action('next_week', async ({ ack, body, client }) => {
-  await ack()
-  if (currentWeek < 3) currentWeek++
-  await client.views.publish({
-    user_id: body.user.id,
-    view: {
-      type: 'home',
-      blocks: generateBlocks(officeSchedule, true, currentWeek),
-    } as HomeView,
-  })
-})
-
-// Events
-app.event('app_home_opened', async (args) => {
-  await appHomeOpenedHandler(args, officeSchedule, currentWeek)
-})
-
+// Startup
 const start = async () => {
   await initializeSchedule()
 

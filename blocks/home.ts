@@ -2,6 +2,8 @@ import type { Block, KnownBlock } from '@slack/types'
 import type { MonthSchedule, WeekSchedule } from '../types/schedule'
 import { getDateSuffix } from '../utils/dates'
 
+const WEEK_LABELS = ['Current Week', 'Next Week', 'Week 3', 'Week 4']
+
 export const generateBlocks = (
   monthSchedule: MonthSchedule,
   isHomeView: boolean,
@@ -19,42 +21,11 @@ export const generateBlocks = (
   ]
 
   if (isHomeView) {
-    // Add pagination controls - removed disabled property and simplified
-    blocks.push({
-      type: 'actions',
-      elements: [
-        {
-          type: 'button',
-          text: {
-            type: 'plain_text',
-            text: '◀️ Previous',
-            emoji: true,
-          },
-          action_id: 'prev_week',
-          value: currentWeek.toString(),
-          style: currentWeek === 0 ? 'danger' : 'primary', // Visual indication instead of disabled
-        },
-        {
-          type: 'button',
-          text: {
-            type: 'plain_text',
-            text: 'Next ▶️',
-            emoji: true,
-          },
-          action_id: 'next_week',
-          value: currentWeek.toString(),
-          style: currentWeek === 3 ? 'danger' : 'primary', // Visual indication instead of disabled
-        },
-      ],
-    })
-
-    // Add week indicator
-    const weekLabels = ['Current Week', 'Next Week', 'Week 3', 'Week 4']
     blocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${weekLabels[currentWeek]}*`,
+        text: `*${WEEK_LABELS[currentWeek]}*`,
       },
     })
   }
@@ -73,7 +44,7 @@ export const generateBlocks = (
     return blocks
   }
 
-  // Rest of your block generation code...
+  // Add schedule content
   Object.entries(weekSchedule).forEach(([day, { attendees, date }]) => {
     const shortDay = isHomeView ? day.slice(0, 3) : day
     const dayText = `*${shortDay}${isHomeView ? ` ${date}${getDateSuffix(date)}` : ''}*\n${
@@ -87,40 +58,72 @@ export const generateBlocks = (
           type: 'mrkdwn',
           text: dayText,
         },
-        accessory: {
-          type: 'button',
-          text: {
-            type: 'plain_text',
-            text: '🏢 Office',
-            emoji: true,
-          },
-          style: 'primary',
-          action_id: `office_${day.toLowerCase()}_${currentWeek}`,
-          value: `${day.toLowerCase()}_${currentWeek}`,
-        },
       },
       {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: ' ',
-        },
-        accessory: {
-          type: 'button',
-          text: {
-            type: 'plain_text',
-            text: '🏠 Home',
-            emoji: true,
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: {
+              type: 'plain_text',
+              text: '🏢 Office',
+              emoji: true,
+            },
+            style: 'primary',
+            action_id: `office_${day.toLowerCase()}_${currentWeek}`,
+            value: `${day.toLowerCase()}_${currentWeek}`,
           },
-          action_id: `home_${day.toLowerCase()}_${currentWeek}`,
-          value: `${day.toLowerCase()}_${currentWeek}`,
-        },
+          {
+            type: 'button',
+            text: {
+              type: 'plain_text',
+              text: '🏠 Home',
+              emoji: true,
+            },
+            action_id: `home_${day.toLowerCase()}_${currentWeek}`,
+            value: `${day.toLowerCase()}_${currentWeek}`,
+          },
+        ],
       },
       {
         type: 'divider',
       },
     )
   })
+
+  // Add week selector at the bottom
+  if (isHomeView) {
+    blocks.push({
+      type: 'actions',
+      elements: [
+        {
+          type: 'static_select' as const,
+          placeholder: {
+            type: 'plain_text' as const,
+            text: 'Select week',
+            emoji: true,
+          },
+          options: WEEK_LABELS.map((label, index) => ({
+            text: {
+              type: 'plain_text' as const,
+              text: label,
+              emoji: true,
+            },
+            value: index.toString(),
+          })),
+          initial_option: {
+            text: {
+              type: 'plain_text' as const,
+              text: WEEK_LABELS[currentWeek],
+              emoji: true,
+            },
+            value: currentWeek.toString(),
+          },
+          action_id: 'select_week',
+        },
+      ],
+    })
+  }
 
   return blocks
 }
