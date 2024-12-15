@@ -11,6 +11,40 @@ A Slack app for tracking office attendance.
 - Automatic weekly schedule reset every Friday at 12:00 PM
 - Data persistence between app restarts
 
+## Slack App Configuration
+
+1. Create a new Slack app at https://api.slack.com/apps
+2. Under "Basic Information":
+
+   - Generate a "Signing Secret" and note it down
+   - Generate and note down the "App-Level Token" with `connections:write, authorizations:read, app_configurations:write` scope
+
+3. Under "Socket Mode":
+
+   - Enable Socket Mode
+
+4. Under "OAuth & Permissions":
+
+   - Add the following Bot Token Scopes:
+     - `chat:write`
+     - `commands`
+     - `users:read`
+
+5. Under "App Home":
+
+   - Enable Home Tab
+   - Check "Allow users to send Slash commands and messages from the messages tab"
+
+6. Under "Slash Commands":
+
+   - Create a new command: `/office`
+   - Description: "View today's office attendance"
+   - Usage hint: (leave blank)
+
+7. Under "Install App":
+   - Install the app to your workspace
+   - Note down the "Bot User OAuth Token"
+
 ## Environment Variables
 
 ```env
