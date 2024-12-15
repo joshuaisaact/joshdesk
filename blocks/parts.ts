@@ -7,7 +7,9 @@ export const createHeaderBlock = (isHomeView: boolean): KnownBlock => ({
   type: 'header',
   text: {
     type: 'plain_text',
-    text: isHomeView ? '📅 Office Schedule' : "Here's who's in the office",
+    text: isHomeView
+      ? '📅 Office Schedule'
+      : "📅 Here's who's in the office this week:",
     emoji: true,
   },
 })
