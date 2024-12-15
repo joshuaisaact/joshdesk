@@ -1,23 +1,29 @@
 import { App, type BlockAction } from '@slack/bolt'
-import { createSchedule } from './services/schedule'
+import { createMonthSchedule } from './services/schedule'
 import { loadSchedule, saveSchedule } from './services/storage'
 import { appHomeOpenedHandler } from './events/app-home'
 import { officeCommandHandler } from './commands/office'
 import { homeButtonHandler, officeButtonHandler } from './interactions/buttons'
+import { generateBlocks } from './blocks/home'
+import type { HomeView } from './types/slack'
+import { setupWeeklyReset } from './utils/schedule-reset'
 
-let officeSchedule = createSchedule()
+let officeSchedule = createMonthSchedule()
+let currentWeek = 0
 
 const initializeSchedule = async () => {
   const stored = await loadSchedule()
-  officeSchedule = stored || createSchedule()
+  if (stored) {
+    officeSchedule = stored
+  }
 }
 
 // App initialization
 const app = new App({
-  token: process.env.SLACK_BOT_TOKEN,
-  signingSecret: process.env.SLACK_SIGNING_SECRET,
+  token: Bun.env.SLACK_BOT_TOKEN,
+  signingSecret: Bun.env.SLACK_SIGNING_SECRET,
   socketMode: true,
-  appToken: process.env.SLACK_APP_TOKEN,
+  appToken: Bun.env.SLACK_APP_TOKEN,
 })
 
 // Commands
@@ -42,13 +48,43 @@ app.action<BlockAction>(/home_.*/, async (args) => {
   }
 })
 
+app.action('prev_week', async ({ ack, body, client }) => {
+  await ack()
+  if (currentWeek > 0) currentWeek--
+  await client.views.publish({
+    user_id: body.user.id,
+    view: {
+      type: 'home',
+      blocks: generateBlocks(officeSchedule, true, currentWeek),
+    } as HomeView,
+  })
+})
+
+app.action('next_week', async ({ ack, body, client }) => {
+  await ack()
+  if (currentWeek < 3) currentWeek++
+  await client.views.publish({
+    user_id: body.user.id,
+    view: {
+      type: 'home',
+      blocks: generateBlocks(officeSchedule, true, currentWeek),
+    } as HomeView,
+  })
+})
+
 // Events
 app.event('app_home_opened', async (args) => {
-  await appHomeOpenedHandler(args, officeSchedule)
+  await appHomeOpenedHandler(args, officeSchedule, currentWeek)
 })
 
 const start = async () => {
   await initializeSchedule()
+
+  setupWeeklyReset((newSchedule) => {
+    officeSchedule = newSchedule
+    currentWeek = 0
+  }, Bun.env.SCHEDULE_TEST_MODE === 'true')
+
   await app.start(process.env.PORT || 3000)
   console.log('⚡️ Joshicely app is running!')
 }

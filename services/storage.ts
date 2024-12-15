@@ -1,9 +1,9 @@
-import type { WeekSchedule } from '../types/schedule'
+import type { MonthSchedule } from '../types/schedule'
 import { join } from 'path'
 
 const STORAGE_PATH = join(import.meta.dir, '..', 'data', 'schedule.json')
 
-export const loadSchedule = async (): Promise<WeekSchedule | null> => {
+export const loadSchedule = async (): Promise<MonthSchedule | null> => {
   try {
     const file = Bun.file(STORAGE_PATH)
     const exists = await file.exists()
@@ -15,7 +15,7 @@ export const loadSchedule = async (): Promise<WeekSchedule | null> => {
   }
 }
 
-export const saveSchedule = async (schedule: WeekSchedule): Promise<void> => {
+export const saveSchedule = async (schedule: MonthSchedule): Promise<void> => {
   try {
     await Bun.write(STORAGE_PATH, JSON.stringify(schedule, null, 2))
   } catch (error) {

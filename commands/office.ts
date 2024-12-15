@@ -1,10 +1,10 @@
 import type { AllMiddlewareArgs, SlackCommandMiddlewareArgs } from '@slack/bolt'
-import type { WeekSchedule } from '../types/schedule'
 import { generateBlocks } from '../blocks/home'
+import type { MonthSchedule } from '../types/schedule'
 
 export const officeCommandHandler = async (
   { ack, say }: AllMiddlewareArgs & SlackCommandMiddlewareArgs,
-  schedule: WeekSchedule,
+  schedule: MonthSchedule,
 ) => {
   await ack()
   await say({
