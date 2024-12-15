@@ -29,7 +29,7 @@ type ButtonHandlerArgs = AllMiddlewareArgs &
 
 export const officeButtonHandler = async (
   { action, ack, body, client }: ButtonHandlerArgs,
-  schedule: MonthSchedule, // Changed from WeekSchedule to MonthSchedule
+  schedule: MonthSchedule,
 ): Promise<MonthSchedule | undefined> => {
   await ack()
   const parsed = parseDayFromAction(action.action_id)
@@ -41,8 +41,8 @@ export const officeButtonHandler = async (
 
   const updatedSchedule = updateAttendance(
     schedule,
-    day,
-    currentWeek, // Need to pass current week
+    parsed.day, // Use parsed.day instead of day
+    parsed.week, // Use parsed.week instead of currentWeek
     body.user.id,
     AttendanceStatus.Office,
   )
@@ -51,7 +51,7 @@ export const officeButtonHandler = async (
     user_id: body.user.id,
     view: {
       type: 'home',
-      blocks: generateBlocks(updatedSchedule, true, currentWeek),
+      blocks: generateBlocks(updatedSchedule, true, parsed.week), // Use parsed.week here too
     } as HomeView,
   })
 
@@ -71,8 +71,8 @@ export const homeButtonHandler = async (
 
   const updatedSchedule = updateAttendance(
     schedule,
-    day,
-    currentWeek, // Need to pass current week
+    parsed.day,
+    parsed.week, // Need to pass current week
     body.user.id,
     AttendanceStatus.Home,
   )
@@ -81,7 +81,7 @@ export const homeButtonHandler = async (
     user_id: body.user.id,
     view: {
       type: 'home',
-      blocks: generateBlocks(updatedSchedule, true, currentWeek),
+      blocks: generateBlocks(updatedSchedule, true, parsed.week),
     } as HomeView,
   })
 

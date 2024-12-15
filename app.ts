@@ -4,6 +4,8 @@ import { loadSchedule, saveSchedule } from './services/storage'
 import { appHomeOpenedHandler } from './events/app-home'
 import { officeCommandHandler } from './commands/office'
 import { homeButtonHandler, officeButtonHandler } from './interactions/buttons'
+import { generateBlocks } from './blocks/home'
+import type { HomeView } from './types/slack'
 
 let officeSchedule = createMonthSchedule()
 let currentWeek = 0
@@ -71,7 +73,7 @@ app.action('next_week', async ({ ack, body, client }) => {
 
 // Events
 app.event('app_home_opened', async (args) => {
-  await appHomeOpenedHandler(args, officeSchedule)
+  await appHomeOpenedHandler(args, officeSchedule, currentWeek)
 })
 
 const start = async () => {
