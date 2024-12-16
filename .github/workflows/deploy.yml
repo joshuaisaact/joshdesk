@@ -1,36 +1,48 @@
 name: Deploy to DigitalOcean
 
-# Trigger the deployment on push to the main branch
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the latest code from GitHub
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Set up SSH and deploy the app to the droplet
-      - name: Set up SSH for DigitalOcean deployment
-        uses: webfactory/ssh-agent@v0.5.3
+      - name: Prepare deploy directory
+        uses: appleboy/ssh-action@master
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+        script: |
+          # Ensure the data folder is excluded from being wiped
+          sudo mv /home/joshicely/data /tmp/data_backup || true   # Backup 'data' to a temporary location
+          sudo rm -rf /home/joshicely/*                          # Remove all files except for 'data'
+          sudo mv /tmp/data_backup /home/joshicely/data || true   # Restore the 'data' folder
+          sudo mkdir -p /home/joshicely
+          sudo chown -R wooster:www-data /home/joshicely
+          sudo chmod -R 775 /home/joshicely
 
-      - name: Add passphrase for SSH key
-        run: |
-          echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add <(echo "${{ secrets.SSH_PRIVATE_KEY }}")
+      - name: Deploy code to Droplet
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          script: |
+            # Navigate to the project directory
+            cd /home/joshicely
+            # Pull the latest code from the repo
+            git pull origin main
+            # Install dependencies 
+            bun install
+            # Restart the app with PM2
+            pm2 restart joshicely
 
-      # Deploy the app to the server
-      - name: Deploy to Droplet
-        run: |
-          ssh -o StrictHostKeyChecking=no root@your_droplet_ip << 'EOF'
-            cd /var/www/your-repo-name  # Replace with your app's directory
-            git pull origin main         # Pull the latest changes from GitHub
-            bun install                  # Install dependencies (or npm install if not using Bun)
-            pm2 restart joshicely        # Restart the app using PM2 (or replace with your start command)
-          EOF
