@@ -21,6 +21,10 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Add passphrase for SSH key
+        run: |
+          echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add <(echo "${{ secrets.SSH_PRIVATE_KEY }}")
+
       # Deploy the app to the server
       - name: Deploy to Droplet
         run: |
