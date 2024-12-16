@@ -13,6 +13,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Set up SSH for DigitalOcean deployment
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
       - name: Prepare deploy directory
         uses: appleboy/ssh-action@master
         with:
@@ -20,14 +25,14 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-        script: |
-          # Ensure the data folder is excluded from being wiped
-          sudo mv /home/joshicely/data /tmp/data_backup || true   # Backup 'data' to a temporary location
-          sudo rm -rf /home/joshicely/*                          # Remove all files except for 'data'
-          sudo mv /tmp/data_backup /home/joshicely/data || true   # Restore the 'data' folder
-          sudo mkdir -p /home/joshicely
-          sudo chown -R wooster:www-data /home/joshicely
-          sudo chmod -R 775 /home/joshicely
+          commands: |
+            # Ensure the data folder is excluded from being wiped
+            sudo mv /home/joshicely/data /tmp/data_backup || true   # Backup 'data' to a temporary location
+            sudo rm -rf /home/joshicely/*                          # Remove all files except for 'data'
+            sudo mv /tmp/data_backup /home/joshicely/data || true   # Restore the 'data' folder
+            sudo mkdir -p /home/joshicely
+            sudo chown -R wooster:www-data /home/joshicely
+            sudo chmod -R 775 /home/joshicely
 
       - name: Deploy code to Droplet
         uses: appleboy/ssh-action@master
@@ -36,13 +41,12 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          script: |
+          commands: |
             # Navigate to the project directory
             cd /home/joshicely
             # Pull the latest code from the repo
             git pull origin main
-            # Install dependencies 
+            # Install dependencies
             bun install
             # Restart the app with PM2
             pm2 restart joshicely
-
