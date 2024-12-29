@@ -60,8 +60,8 @@ export const setupWeeklyReset = (
   logger.info({
     msg: 'Next schedule reset scheduled',
     scheduledFor: {
-      iso: nextFriday.toISOString(), // Keep ISO for machine parsing
-      formatted: format(nextFriday, 'EEEE do MMMM yyyy, h:mm a'), // e.g. "Friday 3rd January 2025, 12:00 PM"
+      iso: nextFriday.toISOString(),
+      formatted: format(nextFriday, 'EEEE do MMMM yyyy, h:mm a'),
     },
   })
 }
