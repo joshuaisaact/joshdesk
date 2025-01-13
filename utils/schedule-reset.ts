@@ -26,13 +26,10 @@ export const setupWeeklyReset = (
 
   setTimeout(
     async () => {
-      // Get fresh schedule frame starting from next Monday
       const newSchedule = createMonthSchedule(true)
 
-      // Copy over any existing future week data
       const oldSchedule = await loadSchedule()
       if (oldSchedule) {
-        // Copy data from weeks 1-3 to weeks 0-2 in the new schedule
         for (let week = 1; week < 4; week++) {
           if (oldSchedule[week]) {
             newSchedule[week - 1] = oldSchedule[week]
