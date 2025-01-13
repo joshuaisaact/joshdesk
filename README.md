@@ -1,8 +1,8 @@
 ## README.md
 
-# Joshicely
+# JoshDesk
 
-A Slack app for tracking office attendance.
+A Slack app for booking desks.
 
 ## Features
 
