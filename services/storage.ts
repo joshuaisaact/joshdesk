@@ -1,24 +1,45 @@
 import type { MonthSchedule } from '../types/schedule'
+import { Database } from 'bun:sqlite'
 import { join } from 'path'
+import { logger } from '../utils/logger'
+import { DB_PATH } from '../constants'
+import { tryCatch } from '../utils/error-handlers'
 
-const STORAGE_PATH = join(import.meta.dir, '..', 'data', 'schedule.json')
+const db = new Database(DB_PATH)
 
-export const loadSchedule = async (): Promise<MonthSchedule | null> => {
-  try {
-    const file = Bun.file(STORAGE_PATH)
-    const exists = await file.exists()
-    if (!exists) return null
-    return await file.json()
-  } catch (error) {
-    console.error('Error loading schedule:', error)
-    return null
-  }
+type ScheduleRow = {
+  schedule_data: string
+  updated_at: string
 }
 
-export const saveSchedule = async (schedule: MonthSchedule): Promise<void> => {
-  try {
-    await Bun.write(STORAGE_PATH, JSON.stringify(schedule, null, 2))
-  } catch (error) {
-    console.error('Error saving schedule:', error)
-  }
-}
+type QueryParams = [string]
+
+db.run(`CREATE TABLE IF NOT EXISTS schedules (
+  team_id TEXT PRIMARY KEY,
+  schedule_data JSON NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`)
+
+const DEFAULT_TEAM_ID = 'default'
+
+export const loadSchedule = () =>
+  tryCatch(async () => {
+    const row = db
+      .query<
+        ScheduleRow,
+        QueryParams
+      >('SELECT schedule_data FROM schedules WHERE team_id = ?')
+      .get(DEFAULT_TEAM_ID)
+
+    if (!row) return null
+    return JSON.parse(row.schedule_data)
+  }, 'Error loading schedule from SQLite')
+
+export const saveSchedule = (schedule: MonthSchedule) =>
+  tryCatch(async () => {
+    db.run(
+      `INSERT OR REPLACE INTO schedules (team_id, schedule_data, updated_at)
+       VALUES (?, ?, CURRENT_TIMESTAMP)`,
+      [DEFAULT_TEAM_ID, JSON.stringify(schedule)],
+    )
+  }, 'Error saving schedule to SQLite')
