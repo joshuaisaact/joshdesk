@@ -1,20 +1,16 @@
 import { logger } from './utils/logger'
-import { App, type BlockAction } from '@slack/bolt'
+import { App } from '@slack/bolt'
 import { createMonthSchedule } from './services/schedule'
-import { loadSchedule, saveSchedule } from './services/storage'
-import { appHomeOpenedHandler } from './events/app-home'
-import { officeCommandHandler } from './commands/office'
-import { homeButtonHandler, officeButtonHandler } from './interactions/buttons'
-import { generateBlocks } from './blocks/home'
-import type { HomeView, SelectWeekAction } from './types/slack'
 import { setupWeeklyReset } from './utils/schedule-reset'
-import { DB_PATH, JSON_STORAGE_PATH } from './constants'
 import { tryCatch } from './utils/error-handlers'
 import { setupEventHandlers } from './handlers'
 import { initializeDB } from './services/init'
+import { startServer } from './services/server'
 
 // State
-let officeSchedule = createMonthSchedule()
+const state = {
+  schedule: createMonthSchedule(),
+}
 
 const initApp = async () => {
   const app = new App({
@@ -26,7 +22,7 @@ const initApp = async () => {
 
   const storedSchedule = await initializeDB()
   if (storedSchedule) {
-    officeSchedule = storedSchedule
+    state.schedule = storedSchedule
   }
 
   return app
@@ -37,14 +33,14 @@ const start = () =>
     logger.info('Starting app initialization...')
     const app = await initApp()
 
-    setupEventHandlers(app, officeSchedule)
+    setupEventHandlers(app, state)
 
     setupWeeklyReset((newSchedule) => {
       logger.info({ msg: 'Weekly reset triggered' })
-      officeSchedule = newSchedule
+      state.schedule = newSchedule
     }, Bun.env.SCHEDULE_TEST_MODE === 'true')
 
-    await app.start(process.env.PORT || 3000)
+    await startServer(app)
     logger.info('⚡️ JoshDesk app is running!')
   }, 'Failed to start app')
 

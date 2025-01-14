@@ -1,13 +1,5 @@
-import type {
-  App,
-  BlockAction,
-  Middleware,
-  SlackAction,
-  SlackActionMiddlewareArgs,
-  StaticSelectAction,
-} from '@slack/bolt'
+import type { App, BlockAction } from '@slack/bolt'
 import type { MonthSchedule } from '../types/schedule'
-import type { HomeView, SelectWeekAction } from '../types/slack'
 import { appHomeOpenedHandler } from '../events/app-home'
 import { officeCommandHandler } from '../commands/office'
 import { homeButtonHandler, officeButtonHandler } from '../interactions/buttons'
@@ -17,10 +9,13 @@ import { saveSchedule } from '../services/storage'
 
 let currentWeek = 0
 
-export const setupEventHandlers = (app: App, officeSchedule: MonthSchedule) => {
+export const setupEventHandlers = (
+  app: App,
+  state: { schedule: MonthSchedule },
+) => {
   app.event('app_home_opened', async (args) => {
     try {
-      await appHomeOpenedHandler(args, officeSchedule, 0)
+      await appHomeOpenedHandler(args, state.schedule, 0)
     } catch (error) {
       logger.error({ err: error, msg: 'Error handling app_home_opened' })
     }
@@ -28,16 +23,17 @@ export const setupEventHandlers = (app: App, officeSchedule: MonthSchedule) => {
 
   app.command('/office', async (args) => {
     try {
-      await officeCommandHandler(args, officeSchedule)
+      await officeCommandHandler(args, state.schedule)
     } catch (error) {
       logger.error({ err: error, msg: 'Error handling /office' })
     }
   })
+
   app.action<BlockAction>(/office_.*/, async (args) => {
     try {
-      const updatedSchedule = await officeButtonHandler(args, officeSchedule)
+      const updatedSchedule = await officeButtonHandler(args, state.schedule)
       if (updatedSchedule) {
-        officeSchedule = updatedSchedule
+        state.schedule = updatedSchedule
         await saveSchedule(updatedSchedule)
       }
     } catch (error) {
@@ -47,9 +43,9 @@ export const setupEventHandlers = (app: App, officeSchedule: MonthSchedule) => {
 
   app.action<BlockAction>(/home_.*/, async (args) => {
     try {
-      const updatedSchedule = await homeButtonHandler(args, officeSchedule)
+      const updatedSchedule = await homeButtonHandler(args, state.schedule)
       if (updatedSchedule) {
-        officeSchedule = updatedSchedule
+        state.schedule = updatedSchedule
         await saveSchedule(updatedSchedule)
       }
     } catch (error) {
@@ -67,7 +63,7 @@ export const setupEventHandlers = (app: App, officeSchedule: MonthSchedule) => {
         user_id: body.user.id,
         view: {
           type: 'home',
-          blocks: generateBlocks(officeSchedule, true, week),
+          blocks: generateBlocks(state.schedule, true, week),
         },
       })
     } catch (error) {

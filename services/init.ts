@@ -14,7 +14,7 @@ export const initializeDB = () =>
       const jsonData = await jsonFile.json()
       await saveSchedule(jsonData)
       await Bun.write(
-        JSON_STORAGE_PATH + '.backup',
+        `${JSON_STORAGE_PATH}.backup.${Date.now()}`,
         JSON.stringify(jsonData, null, 2),
       )
       await Bun.write(JSON_STORAGE_PATH, '')
