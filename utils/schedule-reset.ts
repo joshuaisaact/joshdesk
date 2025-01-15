@@ -5,7 +5,8 @@ import { logger } from './logger'
 import { format } from 'date-fns/format'
 
 export const setupWeeklyReset = (
-  updateSchedule: (schedule: MonthSchedule) => void,
+  updateSchedule: (teamId: string, schedule: MonthSchedule) => void,
+  state: Map<string, MonthSchedule>,
   isTestMode: boolean = false,
 ) => {
   const now = new Date()
@@ -26,30 +27,42 @@ export const setupWeeklyReset = (
 
   setTimeout(
     async () => {
-      const newSchedule = createMonthSchedule(true)
+      // Process each workspace in the state
+      for (const [teamId] of state) {
+        try {
+          const newSchedule = createMonthSchedule(true)
 
-      const oldSchedule = await loadSchedule()
-      if (oldSchedule) {
-        for (let week = 1; week < 4; week++) {
-          if (oldSchedule[week]) {
-            newSchedule[week - 1] = oldSchedule[week]
+          const oldSchedule = await loadSchedule(teamId)
+          if (oldSchedule) {
+            for (let week = 1; week < 4; week++) {
+              if (oldSchedule[week]) {
+                newSchedule[week - 1] = oldSchedule[week]
+              }
+            }
           }
+
+          updateSchedule(teamId, newSchedule)
+          await saveSchedule(teamId, newSchedule)
+
+          logger.info({
+            msg: `Schedule reset for workspace ${teamId}`,
+            timestamp: format(new Date(), 'EEEE do MMMM yyyy, h:mm a'),
+            nextReset: format(nextFriday, 'EEEE do MMMM yyyy, h:mm a'),
+            firstWeekDates: Object.entries(newSchedule[0]).map(
+              ([day, schedule]) =>
+                `${day}: ${format(new Date(schedule.year, schedule.month - 1, schedule.date), 'do MMM')}`,
+            ),
+          })
+        } catch (error) {
+          logger.error(
+            `Failed to reset schedule for workspace ${teamId}:`,
+            error,
+          )
         }
       }
 
-      updateSchedule(newSchedule)
-      await saveSchedule(newSchedule)
-
-      logger.info({
-        msg: 'Schedule reset',
-        timestamp: format(new Date(), 'EEEE do MMMM yyyy, h:mm a'),
-        nextReset: format(nextFriday, 'EEEE do MMMM yyyy, h:mm a'),
-        firstWeekDates: Object.entries(newSchedule[0]).map(
-          ([day, schedule]) =>
-            `${day}: ${format(new Date(schedule.year, schedule.month - 1, schedule.date), 'do MMM')}`,
-        ),
-      })
-      setupWeeklyReset(updateSchedule, isTestMode)
+      // Schedule next reset
+      setupWeeklyReset(updateSchedule, state, isTestMode)
     },
     isTestMode ? 30000 : msUntilReset,
   )

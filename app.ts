@@ -7,11 +7,11 @@ import { setupEventHandlers } from './handlers'
 import { initializeDB } from './services/init'
 import { startServer } from './services/server'
 import { installationStore } from './services/installation'
+import { deleteWorkspaceData, loadSchedule } from './services/storage'
+import type { MonthSchedule } from './types/schedule'
 
 // State
-const state = {
-  schedule: createMonthSchedule(),
-}
+const state = new Map<string, MonthSchedule>()
 
 const initApp = async () => {
   const app = new App({
@@ -30,10 +30,39 @@ const initApp = async () => {
     },
   })
 
-  const storedSchedule = await initializeDB()
-  if (storedSchedule) {
-    state.schedule = storedSchedule
-  }
+  // Initialize the event handlers with workspace awareness
+  app.event('app_installed', async ({ context }) => {
+    try {
+      const teamId = context.teamId
+      if (!teamId) {
+        logger.error('No team ID found in context during installation')
+        return
+      }
+      await loadSchedule(teamId)
+      logger.info(`App installed in workspace ${teamId}`)
+    } catch (error) {
+      logger.error('Error handling installation:', error)
+    }
+  })
+
+  app.event('app_uninstalled', async ({ context }) => {
+    try {
+      const teamId = context.teamId
+      if (!teamId) {
+        logger.error('No team ID found in context during uninstall')
+        return
+      }
+      await deleteWorkspaceData(teamId)
+      await installationStore.deleteInstallation({
+        teamId,
+        enterpriseId: undefined,
+        isEnterpriseInstall: false,
+      })
+      logger.info(`App uninstalled from workspace ${teamId}`)
+    } catch (error) {
+      logger.error('Error handling uninstall:', error)
+    }
+  })
 
   return app
 }
@@ -44,11 +73,14 @@ const start = () =>
     const app = await initApp()
 
     setupEventHandlers(app, state)
-
-    setupWeeklyReset((newSchedule) => {
-      logger.info({ msg: 'Weekly reset triggered' })
-      state.schedule = newSchedule
-    }, Bun.env.SCHEDULE_TEST_MODE === 'true')
+    setupWeeklyReset(
+      (teamId, newSchedule) => {
+        logger.info({ msg: 'Weekly reset triggered' })
+        state.set(teamId, newSchedule)
+      },
+      state,
+      Bun.env.SCHEDULE_TEST_MODE === 'true',
+    )
 
     await startServer(app)
     logger.info('⚡️ JoshDesk app is running!')

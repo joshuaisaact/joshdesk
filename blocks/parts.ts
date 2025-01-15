@@ -13,9 +13,7 @@ import { getDailyQuote } from '../utils/quotes'
 
 function normalizeUserId(userId: string): string {
   if (!userId) return ''
-  // If it's already in <@ID> format, return as is
   if (userId.startsWith('<@') && userId.endsWith('>')) return userId
-  // If it's a raw ID, wrap it
   return `<@${userId}>`
 }
 
@@ -23,7 +21,6 @@ export const createHeaderBlock = async (
   isHomeView: boolean,
   currentWeek: number,
 ): Promise<(KnownBlock | Block)[]> => {
-  const weather = await getWeather()
   const quoteBlocks = await getDailyQuote()
 
   const blocks: (KnownBlock | Block)[] = [
@@ -32,24 +29,6 @@ export const createHeaderBlock = async (
       text: {
         type: 'mrkdwn',
         text: '*🏢 London Office*  📍 Liverpool Street',
-      },
-    },
-
-    {
-      type: 'divider',
-    },
-    ...quoteBlocks,
-    {
-      type: 'divider',
-    },
-  ]
-
-  if (isHomeView) {
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: ' ',
       },
       accessory: {
         type: 'static_select',
@@ -75,6 +54,24 @@ export const createHeaderBlock = async (
           value: currentWeek.toString(),
         },
         action_id: 'select_week',
+      },
+    },
+
+    {
+      type: 'divider',
+    },
+    ...quoteBlocks,
+    {
+      type: 'divider',
+    },
+  ]
+
+  if (isHomeView) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: ' ',
       },
     })
   }

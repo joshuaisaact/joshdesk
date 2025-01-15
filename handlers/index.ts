@@ -6,26 +6,49 @@ import { officeCommandHandler } from '../commands/office'
 import { homeButtonHandler, officeButtonHandler } from '../interactions/buttons'
 import { generateBlocks } from '../blocks/home'
 import { logger } from '../utils/logger'
-import { saveSchedule } from '../services/storage'
-import { updateAttendance } from '../services/schedule'
+import { loadSchedule, saveSchedule } from '../services/storage'
+import { createMonthSchedule, updateAttendance } from '../services/schedule'
 
 let currentWeek = 0
 
+const getWorkspaceSchedule = async (
+  teamId: string | undefined,
+  state: Map<string, MonthSchedule>,
+): Promise<MonthSchedule | undefined> => {
+  if (!teamId) {
+    logger.error('No team ID found in context')
+    return undefined
+  }
+
+  let schedule = state.get(teamId)
+  if (!schedule) {
+    schedule = (await loadSchedule(teamId)) ?? createMonthSchedule()
+    if (schedule) {
+      state.set(teamId, schedule)
+    }
+  }
+  return schedule
+}
+
 export const setupEventHandlers = (
   app: App,
-  state: { schedule: MonthSchedule },
+  state: Map<string, MonthSchedule>,
 ) => {
-  app.event('app_home_opened', async (args) => {
+  app.event('app_home_opened', async ({ event, context, ...rest }) => {
     try {
-      await appHomeOpenedHandler(args, state.schedule, 0)
+      const schedule = await getWorkspaceSchedule(context.teamId, state)
+      if (!schedule) return
+      await appHomeOpenedHandler({ event, context, ...rest }, schedule, 0)
     } catch (error) {
       logger.error({ err: error, msg: 'Error handling app_home_opened' })
     }
   })
 
-  app.command('/office', async (args) => {
+  app.command('/office', async ({ command, context, ...rest }) => {
     try {
-      await officeCommandHandler(args, state.schedule)
+      const schedule = await getWorkspaceSchedule(context.teamId, state)
+      if (!schedule) return
+      await officeCommandHandler({ command, context, ...rest }, schedule)
     } catch (error) {
       logger.error({ err: error, msg: 'Error handling /office' })
     }
@@ -33,10 +56,13 @@ export const setupEventHandlers = (
 
   app.action<BlockAction>(/office_.*/, async (args) => {
     try {
-      const updatedSchedule = await officeButtonHandler(args, state.schedule)
-      if (updatedSchedule) {
-        state.schedule = updatedSchedule
-        await saveSchedule(updatedSchedule)
+      const schedule = await getWorkspaceSchedule(args.context.teamId, state)
+      if (!schedule) return
+
+      const updatedSchedule = await officeButtonHandler(args, schedule)
+      if (updatedSchedule && args.context.teamId) {
+        state.set(args.context.teamId, updatedSchedule)
+        await saveSchedule(args.context.teamId, updatedSchedule)
       }
     } catch (error) {
       logger.error({ err: error, msg: 'Error handling office button' })
@@ -45,10 +71,13 @@ export const setupEventHandlers = (
 
   app.action<BlockAction>(/home_.*/, async (args) => {
     try {
-      const updatedSchedule = await homeButtonHandler(args, state.schedule)
-      if (updatedSchedule) {
-        state.schedule = updatedSchedule
-        await saveSchedule(updatedSchedule)
+      const schedule = await getWorkspaceSchedule(args.context.teamId, state)
+      if (!schedule) return
+
+      const updatedSchedule = await homeButtonHandler(args, schedule)
+      if (updatedSchedule && args.context.teamId) {
+        state.set(args.context.teamId, updatedSchedule)
+        await saveSchedule(args.context.teamId, updatedSchedule)
       }
     } catch (error) {
       logger.error({ err: error, msg: 'Error handling home button' })
@@ -57,9 +86,11 @@ export const setupEventHandlers = (
 
   app.action<BlockAction>(
     /^set_status_(.+)_(\d+)$/,
-    async ({ action, ack, client, body }) => {
+    async ({ action, ack, client, body, context }) => {
       try {
         await ack()
+        const schedule = await getWorkspaceSchedule(context.teamId, state)
+        if (!schedule) return
 
         if (!('selected_option' in action) || !action.selected_option?.value) {
           logger.warn('No status selected')
@@ -68,23 +99,19 @@ export const setupEventHandlers = (
 
         const [_, status, day, week] = action.selected_option.value.split(':')
 
-        logger.info('Updating status:', {
-          status,
-          day,
-          week,
-          userId: body.user.id,
-        })
-
         const updatedSchedule = updateAttendance(
-          state.schedule,
+          schedule,
           day,
           parseInt(week),
           body.user.id,
           status as AttendanceStatus,
         )
 
-        state.schedule = updatedSchedule
-        await saveSchedule(updatedSchedule)
+        if (context.teamId) {
+          state.set(context.teamId, updatedSchedule)
+          await saveSchedule(context.teamId, updatedSchedule)
+        }
+
         if (!body.view?.id) {
           logger.warn('View ID is missing')
           return
@@ -108,9 +135,12 @@ export const setupEventHandlers = (
     },
   )
 
-  app.action('select_week', async ({ ack, body, client }) => {
+  app.action('select_week', async ({ ack, body, client, context }) => {
     try {
       await ack()
+      const schedule = await getWorkspaceSchedule(context.teamId, state)
+      if (!schedule) return
+
       const action = (body as any).actions[0]
       const week = parseInt(action.selected_option.value)
 
@@ -118,21 +148,11 @@ export const setupEventHandlers = (
         user_id: body.user.id,
         view: {
           type: 'home',
-          blocks: await generateBlocks(
-            state.schedule,
-            true,
-            week,
-            body.user.id,
-          ),
+          blocks: await generateBlocks(schedule, true, week, body.user.id),
         },
       })
     } catch (error) {
       logger.error({ err: error, msg: 'Error handling week selection' })
     }
   })
-}
-
-function normalizeUserId(userId: string): string {
-  // If it starts with @ it's a display name, otherwise it's an ID
-  return userId.startsWith('@') ? userId : `<@${userId}>`
 }

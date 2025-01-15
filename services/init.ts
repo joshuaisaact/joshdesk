@@ -5,14 +5,15 @@ import { JSON_STORAGE_PATH } from '../constants'
 
 export const initializeDB = () =>
   tryCatch(async () => {
-    // Handle JSON to SQLite migration
+    const DEFAULT_TEAM_ID = 'T9TK3CUKW' // Or whatever your original workspace ID is
+
     const jsonFile = Bun.file(JSON_STORAGE_PATH)
     const jsonExists = await jsonFile.exists()
 
     if (jsonExists) {
       logger.info('Found JSON file, starting migration to SQLite')
       const jsonData = await jsonFile.json()
-      await saveSchedule(jsonData)
+      await saveSchedule(DEFAULT_TEAM_ID, jsonData)
       await Bun.write(
         `${JSON_STORAGE_PATH}.backup.${Date.now()}`,
         JSON.stringify(jsonData, null, 2),
@@ -21,7 +22,6 @@ export const initializeDB = () =>
       logger.info('Successfully migrated data to SQLite')
     }
 
-    // Load schedule from SQLite
-    const stored = await loadSchedule()
+    const stored = await loadSchedule(DEFAULT_TEAM_ID)
     return stored
   }, 'Error initializing database')
