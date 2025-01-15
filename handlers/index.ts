@@ -9,8 +9,6 @@ import { logger } from '../utils/logger'
 import { loadSchedule, saveSchedule } from '../services/storage'
 import { createMonthSchedule, updateAttendance } from '../services/schedule'
 
-let currentWeek = 0
-
 const getWorkspaceSchedule = async (
   teamId: string | undefined,
   state: Map<string, MonthSchedule>,

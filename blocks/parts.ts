@@ -185,20 +185,6 @@ export const createDayBlock = (
   )
   const clientUsers = schedule.attendees.filter((a) => a.status === 'client')
 
-  logger.info({
-    msg: 'Day status',
-    data: {
-      day,
-      userStatus,
-      userCount: {
-        office: officeUsers.length,
-        remote: remoteUsers.length,
-        traveling: travelingUsers.length,
-        client: clientUsers.length,
-      },
-    },
-  })
-
   const blocks: (KnownBlock | Block)[] = [
     spacer,
     {
