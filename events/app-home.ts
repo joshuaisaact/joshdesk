@@ -16,7 +16,7 @@ export const appHomeOpenedHandler = async (
       user_id: event.user,
       view: {
         type: 'home',
-        blocks: generateBlocks(schedule, true, currentWeek),
+        blocks: await generateBlocks(schedule, true, currentWeek, event.user),
       } as HomeView,
     })
   } catch (error) {

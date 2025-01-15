@@ -69,7 +69,12 @@ const handleAttendanceButton = async (
     user_id: body.user.id,
     view: {
       type: 'home',
-      blocks: generateBlocks(updatedSchedule, true, parsed.week),
+      blocks: await generateBlocks(
+        updatedSchedule,
+        true,
+        parsed.week,
+        body.user.id,
+      ), // Add await here
     } as HomeView,
   })
 
@@ -79,9 +84,9 @@ const handleAttendanceButton = async (
 export const officeButtonHandler = (
   args: ButtonHandlerArgs,
   schedule: MonthSchedule,
-) => handleAttendanceButton(args, schedule, AttendanceStatus.Office)
+) => handleAttendanceButton(args, schedule, AttendanceStatus.OFFICE)
 
 export const homeButtonHandler = (
   args: ButtonHandlerArgs,
   schedule: MonthSchedule,
-) => handleAttendanceButton(args, schedule, AttendanceStatus.Home)
+) => handleAttendanceButton(args, schedule, AttendanceStatus.REMOTE)

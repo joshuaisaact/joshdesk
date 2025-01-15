@@ -8,7 +8,7 @@ export const officeCommandHandler = async (
 ) => {
   await ack()
   await say({
-    blocks: generateBlocks(schedule, false),
+    blocks: await generateBlocks(schedule, false, 0, ''),
     text: "Here's who's in the office this week",
   })
 }

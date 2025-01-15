@@ -5,20 +5,20 @@ import {
   createDayBlock,
   createWeekSelectorBlock,
 } from './parts'
+import { format } from 'date-fns/format'
+import { getWeather } from '../utils/weather'
 
-export const generateBlocks = (
+export const generateBlocks = async (
   monthSchedule: MonthSchedule,
   isHomeView: boolean,
   currentWeek: number = 0,
-): (KnownBlock | Block)[] => {
+  userId: string,
+): Promise<(KnownBlock | Block)[]> => {
+  // Make this async
   const blocks: (KnownBlock | Block)[] = [
-    createHeaderBlock(isHomeView),
-    { type: 'divider' },
+    ...(await createHeaderBlock(isHomeView, currentWeek)), // Await the header blocks
   ]
-
-  if (isHomeView) {
-    blocks.push(createWeekSelectorBlock(currentWeek), { type: 'divider' })
-  }
+  const weather = await getWeather()
 
   const weekSchedule = monthSchedule[currentWeek]
 
@@ -27,25 +27,36 @@ export const generateBlocks = (
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: 'No schedule available for this week',
+        text: '🚫 No schedule available for this week',
       },
     })
     return blocks
   }
 
+  let hasVisibleDays = false
+
   Object.entries(weekSchedule).forEach(([day, schedule]) => {
-    blocks.push(...createDayBlock(day, schedule, isHomeView, currentWeek))
+    const dayBlocks = createDayBlock(
+      day,
+      schedule,
+      isHomeView,
+      currentWeek,
+      userId,
+      weather,
+    )
+    if (dayBlocks) {
+      hasVisibleDays = true
+      blocks.push(...dayBlocks)
+    }
   })
 
-  if (isHomeView) {
+  if (!hasVisibleDays) {
     blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: 'Use 🏢 Office or 🏠 Home to update your status • View current schedule with `/office`',
-        },
-      ],
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '📅 No more days scheduled this week',
+      },
     })
   }
 
