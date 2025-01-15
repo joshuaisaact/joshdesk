@@ -21,6 +21,13 @@ const initApp = async () => {
     stateSecret: Bun.env.SLACK_STATE_SECRET,
     scopes: ['channels:history', 'chat:write', 'commands'],
     installationStore,
+    socketMode: true,
+    appToken: Bun.env.SLACK_APP_TOKEN,
+    redirectUri:
+      'https://bf89-149-22-196-72.ngrok-free.app/slack/oauth/callback',
+    installerOptions: {
+      redirectUriPath: '/slack/oauth/callback',
+    },
   })
 
   const storedSchedule = await initializeDB()
