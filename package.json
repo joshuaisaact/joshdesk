@@ -1,6 +1,13 @@
 {
   "name": "joshicely",
   "module": "index.ts",
+  "scripts": {
+    "dev": "bun run --watch app.ts",
+    "start": "bun run app.ts",
+    "test": "bun test",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
