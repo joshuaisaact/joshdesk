@@ -3,6 +3,8 @@
 data/schedule.json
 data/joshdesk.db
 
+data_backup
+
 # Logs
 
 logs

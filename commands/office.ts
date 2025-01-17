@@ -3,12 +3,13 @@ import { generateBlocks } from '../blocks/home'
 import type { MonthSchedule } from '../types/schedule'
 
 export const officeCommandHandler = async (
-  { ack, say }: AllMiddlewareArgs & SlackCommandMiddlewareArgs,
+  { ack, say, context }: AllMiddlewareArgs & SlackCommandMiddlewareArgs,
   schedule: MonthSchedule,
+  teamId: string,
 ) => {
   await ack()
   await say({
-    blocks: await generateBlocks(schedule, false, 0, ''),
+    blocks: await generateBlocks(schedule, false, 0, '', teamId),
     text: "Here's who's in the office this week",
   })
 }

@@ -1,5 +1,5 @@
 import type { Block, KnownBlock } from '@slack/types'
-import type { DaySchedule, MonthSchedule } from '../types/schedule'
+import type { DaySchedule } from '../types/schedule'
 import { format, isBefore, isToday, startOfDay } from 'date-fns'
 import { AttendanceStatus, STATUS_OPTIONS, WEEK_LABELS } from '../constants'
 import { logger } from '../utils/logger'
@@ -10,6 +10,7 @@ import {
   type WeatherData,
 } from '../utils/weather'
 import { getDailyQuote } from '../utils/quotes'
+import type { WorkspaceSettings } from '../services/storage'
 
 function normalizeUserId(userId: string): string {
   if (!userId) return ''
@@ -20,6 +21,7 @@ function normalizeUserId(userId: string): string {
 export const createHeaderBlock = async (
   isHomeView: boolean,
   currentWeek: number,
+  settings: WorkspaceSettings,
 ): Promise<(KnownBlock | Block)[]> => {
   const quoteBlocks = await getDailyQuote()
 
@@ -28,35 +30,81 @@ export const createHeaderBlock = async (
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: '*🏢 London Office*  📍 Liverpool Street',
+        text: `*🏢 ${settings.officeName}*  📍 ${settings.officeAddress}`,
       },
-      accessory: {
-        type: 'static_select',
-        placeholder: {
-          type: 'plain_text',
-          text: 'Select week',
-          emoji: true,
-        },
-        options: WEEK_LABELS.map((label, index) => ({
-          text: {
-            type: 'plain_text',
-            text: label,
-            emoji: true,
+      accessory: isHomeView
+        ? {
+            type: 'button',
+            text: {
+              type: 'plain_text',
+              text: '⚙️ Settings',
+              emoji: true,
+            },
+            action_id: 'open_settings',
+          }
+        : {
+            type: 'static_select',
+            placeholder: {
+              type: 'plain_text',
+              text: 'Select week',
+              emoji: true,
+            },
+            options: WEEK_LABELS.map((label, index) => ({
+              text: {
+                type: 'plain_text',
+                text: label,
+                emoji: true,
+              },
+              value: index.toString(),
+            })),
+            initial_option: {
+              text: {
+                type: 'plain_text',
+                text: WEEK_LABELS[currentWeek],
+                emoji: true,
+              },
+              value: currentWeek.toString(),
+            },
+            action_id: 'select_week',
           },
-          value: index.toString(),
-        })),
-        initial_option: {
-          text: {
-            type: 'plain_text',
-            text: WEEK_LABELS[currentWeek],
-            emoji: true,
-          },
-          value: currentWeek.toString(),
-        },
-        action_id: 'select_week',
-      },
     },
-
+    // If we're in the home view, add the week selector in a separate section
+    ...(isHomeView
+      ? [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: ' ',
+            },
+            accessory: {
+              type: 'static_select',
+              placeholder: {
+                type: 'plain_text',
+                text: 'Select week',
+                emoji: true,
+              },
+              options: WEEK_LABELS.map((label, index) => ({
+                text: {
+                  type: 'plain_text',
+                  text: label,
+                  emoji: true,
+                },
+                value: index.toString(),
+              })),
+              initial_option: {
+                text: {
+                  type: 'plain_text',
+                  text: WEEK_LABELS[currentWeek],
+                  emoji: true,
+                },
+                value: currentWeek.toString(),
+              },
+              action_id: 'select_week',
+            },
+          },
+        ]
+      : []),
     {
       type: 'divider',
     },
@@ -91,7 +139,7 @@ export const createWeekSelectorBlock = (currentWeek: number): KnownBlock => ({
   type: 'section',
   text: {
     type: 'mrkdwn',
-    text: ' ', // Empty space to prevent cursor, but maintain layout
+    text: ' ',
   },
   accessory: {
     type: 'static_select' as const,
@@ -132,7 +180,7 @@ export const createDayBlock = (
   isHomeView: boolean,
   currentWeek: number,
   userId: string,
-  weather: WeatherData | null, // Add weather parameter
+  weather: WeatherData | null,
 ): (KnownBlock | Block)[] | null => {
   const scheduleDate = new Date(
     schedule.year,

@@ -7,6 +7,7 @@ export const appHomeOpenedHandler = async (
   {
     event,
     client,
+    context,
   }: AllMiddlewareArgs & SlackEventMiddlewareArgs<'app_home_opened'>,
   schedule: MonthSchedule,
   currentWeek: number = 0,
@@ -16,7 +17,13 @@ export const appHomeOpenedHandler = async (
       user_id: event.user,
       view: {
         type: 'home',
-        blocks: await generateBlocks(schedule, true, currentWeek, event.user),
+        blocks: await generateBlocks(
+          schedule,
+          true,
+          currentWeek,
+          event.user,
+          context.teamId!,
+        ),
       } as HomeView,
     })
   } catch (error) {

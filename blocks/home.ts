@@ -7,18 +7,26 @@ import {
 } from './parts'
 import { format } from 'date-fns/format'
 import { getWeather } from '../utils/weather'
+import { getWorkspaceSettings } from '../services/storage'
 
 export const generateBlocks = async (
   monthSchedule: MonthSchedule,
   isHomeView: boolean,
   currentWeek: number = 0,
   userId: string,
+  teamId: string,
 ): Promise<(KnownBlock | Block)[]> => {
-  // Make this async
+  const settings = getWorkspaceSettings(teamId)
+
   const blocks: (KnownBlock | Block)[] = [
-    ...(await createHeaderBlock(isHomeView, currentWeek)), // Await the header blocks
+    ...(await createHeaderBlock(isHomeView, currentWeek, settings)),
   ]
-  const weather = await getWeather()
+
+  const weather = await getWeather(
+    settings.latitude,
+    settings.longitude,
+    settings.timezone,
+  )
 
   const weekSchedule = monthSchedule[currentWeek]
 

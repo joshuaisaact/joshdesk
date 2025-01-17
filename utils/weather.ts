@@ -52,31 +52,40 @@ export const WEATHER_CODES: { [key: number]: string } = {
   95: 'Thunderstorm',
 }
 
-let weatherCache: {
-  data: WeatherData | null
-  timestamp: number
-} = {
-  data: null,
-  timestamp: 0,
-}
-
 const CACHE_DURATION = 30 * 60 * 1000 // 30 minutes
 
-export async function getWeather(): Promise<WeatherData | null> {
-  const now = Date.now()
-  if (weatherCache.data && now - weatherCache.timestamp < CACHE_DURATION) {
-    return weatherCache.data
+let weatherCache: {
+  [key: string]: {
+    data: WeatherData | null
+    timestamp: number
   }
+} = {}
+
+export async function getWeather(
+  latitude: number,
+  longitude: number,
+  timezone: string,
+): Promise<WeatherData | null> {
+  const cacheKey = `${latitude},${longitude}`
+  const now = Date.now()
+
+  if (
+    weatherCache[cacheKey]?.data &&
+    now - weatherCache[cacheKey].timestamp < CACHE_DURATION
+  ) {
+    return weatherCache[cacheKey].data
+  }
+
   try {
     const response = await fetch(
       'https://api.open-meteo.com/v1/forecast?' +
-        'latitude=51.5174&' +
-        'longitude=-0.0795&' +
+        `latitude=${latitude}&` +
+        `longitude=${longitude}&` +
         'current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,is_day,uv_index&' +
         'hourly=temperature_2m,weather_code,precipitation_probability&' +
         'daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset&' +
-        'timezone=Europe/London&' +
-        'forecast_days=3',
+        `timezone=${timezone}&` +
+        'forecast_days=5',
     )
 
     const data = await response.json()
@@ -112,7 +121,7 @@ export async function getWeather(): Promise<WeatherData | null> {
         sunset: data.daily.sunset[i],
       })),
     }
-    weatherCache = {
+    weatherCache[cacheKey] = {
       data: weatherData,
       timestamp: now,
     }

@@ -1,4 +1,4 @@
-import type { App, BlockAction } from '@slack/bolt'
+import type { App, BlockAction, ViewSubmitAction } from '@slack/bolt'
 import type { MonthSchedule } from '../types/schedule'
 import { AttendanceStatus } from '../constants'
 import { appHomeOpenedHandler } from '../events/app-home'
@@ -6,8 +6,33 @@ import { officeCommandHandler } from '../commands/office'
 import { homeButtonHandler, officeButtonHandler } from '../interactions/buttons'
 import { generateBlocks } from '../blocks/home'
 import { logger } from '../utils/logger'
-import { loadSchedule, saveSchedule } from '../services/storage'
+import {
+  getWorkspaceSettings,
+  loadSchedule,
+  saveSchedule,
+  saveWorkspaceSettings,
+  type WorkspaceSettings,
+} from '../services/storage'
 import { createMonthSchedule, updateAttendance } from '../services/schedule'
+import { createSettingsModal } from '../modals/settings'
+import {
+  geocodeAddress,
+  getPlaceDetails,
+  searchPlaces,
+} from '../services/geocoding'
+
+interface SettingsViewState {
+  office_name: {
+    office_name_input: {
+      value: string
+    }
+  }
+  office_address: {
+    office_address_input: {
+      value: string
+    }
+  }
+}
 
 const getWorkspaceSchedule = async (
   teamId: string | undefined,
@@ -42,11 +67,105 @@ export const setupEventHandlers = (
     }
   })
 
+  app.action('open_settings', async ({ ack, body, client, context }) => {
+    await ack()
+    try {
+      const settings = await getWorkspaceSettings(context.teamId!)
+
+      await client.views.open({
+        trigger_id: (body as any).trigger_id,
+        view: createSettingsModal(settings),
+      })
+    } catch (error) {
+      logger.error({ msg: 'Error opening settings modal', error })
+    }
+  })
+
+  app.view('settings_submit', async ({ ack, view, context, body, client }) => {
+    await ack()
+    try {
+      const values = view.state.values
+      const officeName = values.office_name.office_name_input.value
+      const selectedPlace =
+        values.office_address.office_address_input.selected_option
+
+      if (!officeName || !selectedPlace) {
+        throw new Error('Office name and address are required')
+      }
+
+      const placeDetails = await getPlaceDetails(selectedPlace.value)
+
+      const settings: WorkspaceSettings = {
+        officeName,
+        officeAddress: selectedPlace.text.text,
+        latitude: placeDetails.latitude,
+        longitude: placeDetails.longitude,
+        timezone: placeDetails.timezone,
+      }
+
+      await saveWorkspaceSettings(context.teamId!, settings)
+
+      // Refresh home view
+      const schedule = await getWorkspaceSchedule(context.teamId!, state)
+      if (schedule) {
+        await client.views.publish({
+          user_id: body.user.id,
+          view: {
+            type: 'home',
+            blocks: await generateBlocks(
+              schedule,
+              true,
+              0,
+              body.user.id,
+              context.teamId!,
+            ),
+          },
+        })
+      }
+
+      await client.chat.postEphemeral({
+        channel: body.user.id,
+        user: body.user.id,
+        text: `✅ Office location updated to: ${settings.officeName} (${settings.officeAddress})`,
+      })
+    } catch (error) {
+      await client.chat.postEphemeral({
+        channel: body.user.id,
+        user: body.user.id,
+        text: `❌ Error updating office location: ${error instanceof Error ? error.message : String(error)}`,
+      })
+    }
+  })
+
+  app.options('office_address_input', async ({ ack, body }) => {
+    try {
+      const results = await searchPlaces(body.value || '')
+      await ack({
+        options: results.map((place) => ({
+          text: {
+            type: 'plain_text',
+            text: place.description,
+          },
+          value: place.place_id,
+        })),
+      })
+    } catch (error) {
+      logger.error({ msg: 'Error loading address suggestions', error })
+      await ack({
+        options: [],
+      })
+    }
+  })
+
   app.command('/office', async ({ command, context, ...rest }) => {
     try {
       const schedule = await getWorkspaceSchedule(context.teamId, state)
       if (!schedule) return
-      await officeCommandHandler({ command, context, ...rest }, schedule)
+      await officeCommandHandler(
+        { command, context, ...rest },
+        schedule,
+        context.teamId!,
+      )
     } catch (error) {
       logger.error({ err: error, msg: 'Error handling /office' })
     }
@@ -114,9 +233,8 @@ export const setupEventHandlers = (
           logger.warn('View ID is missing')
           return
         }
-
         await client.views.update({
-          view_id: body.view.id,
+          view_id: body.view!.id,
           view: {
             type: 'home',
             blocks: await generateBlocks(
@@ -124,6 +242,7 @@ export const setupEventHandlers = (
               true,
               parseInt(week),
               body.user.id,
+              context.teamId!,
             ),
           },
         })
@@ -146,7 +265,13 @@ export const setupEventHandlers = (
         user_id: body.user.id,
         view: {
           type: 'home',
-          blocks: await generateBlocks(schedule, true, week, body.user.id),
+          blocks: await generateBlocks(
+            schedule,
+            true,
+            week,
+            body.user.id,
+            context.teamId!,
+          ),
         },
       })
     } catch (error) {
