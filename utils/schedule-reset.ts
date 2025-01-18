@@ -3,6 +3,7 @@ import { createMonthSchedule } from '../services/schedule'
 import { loadSchedule, saveSchedule } from '../services/storage'
 import { logger } from './logger'
 import { format } from 'date-fns/format'
+import { tryCatch } from './error-handlers.ts'
 
 export const setupWeeklyReset = (
   updateSchedule: (teamId: string, schedule: MonthSchedule) => void,
@@ -74,4 +75,54 @@ export const setupWeeklyReset = (
       formatted: format(nextFriday, 'EEEE do MMMM yyyy, h:mm a'),
     },
   })
+}
+
+export const shouldResetSchedule = (): boolean => {
+  const now = new Date()
+  const isFridayAfternoon = now.getDay() === 5 && now.getHours() >= 16
+  return isFridayAfternoon || now.getDay() >= 5
+}
+
+export const resetWorkspaceSchedules = async (state: Map<string, MonthSchedule>) =>
+  tryCatch(async () => {
+    if (!shouldResetSchedule()) return
+
+    logger.info('Weekend/Friday afternoon detected - checking schedules')
+    for (const [teamId] of state) {
+      const currentSchedule = state.get(teamId)
+      if (!currentSchedule || !isScheduleAlreadyReset(currentSchedule)) {
+        const newSchedule = createMonthSchedule(true)
+        const oldSchedule = await loadSchedule(teamId)
+
+        if (oldSchedule) {
+
+          for (let week = 1; week < 4; week++) {
+            if (oldSchedule[week]) {
+              newSchedule[week - 1] = oldSchedule[week]
+            }
+          }
+        }
+
+        state.set(teamId, newSchedule)
+        await saveSchedule(teamId, newSchedule)
+        logger.info(`Reset schedule for team ${teamId}`)
+      } else {
+        logger.info(`Schedule for team ${teamId} already reset for next week`)
+      }
+    }
+  }, 'Failed to reset workspace schedules')
+
+export const isScheduleAlreadyReset = (schedule: MonthSchedule): boolean => {
+  const firstWeek = schedule[0]
+  if (!firstWeek?.Monday) return false
+
+  const firstMonday = new Date(
+    firstWeek.Monday.year,
+    firstWeek.Monday.month - 1,
+    firstWeek.Monday.date
+  )
+
+  const today = new Date()
+  // If the first Monday is already in the future, the schedule has been reset
+  return firstMonday > today
 }

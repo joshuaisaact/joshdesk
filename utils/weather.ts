@@ -54,7 +54,7 @@ export const WEATHER_CODES: { [key: number]: string } = {
 
 const CACHE_DURATION = 30 * 60 * 1000 // 30 minutes
 
-let weatherCache: {
+const weatherCache: {
   [key: string]: {
     data: WeatherData | null
     timestamp: number

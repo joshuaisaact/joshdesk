@@ -88,16 +88,16 @@ db.run(`CREATE TABLE IF NOT EXISTS workspace_categories (
 export const loadSchedule = (teamId: string) =>
   tryCatch(async () => {
     const row = db
-      .query<
-        ScheduleRow,
-        QueryParams
-      >('SELECT schedule_data FROM schedules WHERE team_id = ?')
+      .query<ScheduleRow, QueryParams>('SELECT schedule_data FROM schedules WHERE team_id = ?')
       .get(teamId)
 
     if (!row) {
-      // Return a fresh schedule for new workspaces
-      logger.info(`Creating new schedule for team ${teamId}`)
-      const newSchedule = createMonthSchedule()
+      const now = new Date()
+      const isFridayAfternoon = now.getDay() === 5 && now.getHours() >= 16
+      const shouldStartFromNext = isFridayAfternoon || now.getDay() >= 5 // Friday afternoon or weekend
+
+      logger.info(`Creating new schedule for team ${teamId}, starting from next week: ${shouldStartFromNext}`)
+      const newSchedule = createMonthSchedule(shouldStartFromNext)
       await saveSchedule(teamId, newSchedule)
       return newSchedule
     }
@@ -119,7 +119,7 @@ export const deleteWorkspaceData = (teamId: string) =>
   tryCatch(async () => {
     db.run('DELETE FROM schedules WHERE team_id = ?', [teamId])
     logger.info(`Deleted schedule data for team ${teamId}`)
-  }, 'Error deleting workspace data')
+  }, 'Error deleting  data')
 
 export const getWorkspaceCategories = (teamId: string): Category[] => {
   try {
@@ -127,18 +127,33 @@ export const getWorkspaceCategories = (teamId: string): Category[] => {
       throw new CategoryError('Team ID is required')
     }
 
+    logger.info({
+      msg: 'Querying workspace categories',
+      teamId,
+    })
+
     const rows = db
       .query('SELECT * FROM workspace_categories WHERE team_id = ? ORDER BY sort_order')
-      .all(teamId) as Array<{
+      .all([teamId]) as Array<{
       category_id: string
       display_name: string
       emoji: string
       sort_order: number
-      is_enabled: number // SQLite stores booleans as 0/1
+      is_enabled: number
     }>
 
-    if (!rows) {
-      logger.info(`No categories found for team ${teamId}, using defaults`)
+    if (!rows || rows.length === 0) {
+      logger.info({
+        msg: `No categories found for team ${teamId}, using defaults`,
+        teamId,
+        defaults: DEFAULT_CATEGORIES
+      })
+
+      // Initialize defaults if none exist
+      tryCatch(async () => {
+        await saveWorkspaceCategories(teamId, DEFAULT_CATEGORIES)
+      }, 'Failed to save default categories')
+
       return DEFAULT_CATEGORIES
     }
 
@@ -152,7 +167,8 @@ export const getWorkspaceCategories = (teamId: string): Category[] => {
   } catch (error) {
     logger.error({
       msg: 'Failed to get workspace categories',
-      error,
+      error: error instanceof Error ? error.message : String(error),
+      stackTrace: error instanceof Error ? error.stack : undefined,
       teamId
     })
     return DEFAULT_CATEGORIES
@@ -240,23 +256,48 @@ export const saveWorkspaceCategories = async (
 
 
 export const getWorkspaceSettings = (teamId: string): WorkspaceSettings => {
-  const row = db
-    .query('SELECT * FROM workspace_settings WHERE team_id = ?')
-    .get(teamId) as any
-
-  const categories = getWorkspaceCategories(teamId)
-
-  if (!row) {
-    return DEFAULT_SETTINGS
+  if (!teamId) {
+    logger.warn('getWorkspaceSettings called with no teamId, using defaults');
+    return DEFAULT_SETTINGS;
   }
 
-  return {
-    officeName: row.office_name,
-    officeAddress: row.office_address,
-    latitude: row.latitude,
-    longitude: row.longitude,
-    timezone: row.timezone,
-    categories
+  logger.info('getWorkspaceSettings called with teamId:', teamId);
+
+  try {
+    const row = db
+      .query('SELECT * FROM workspace_settings WHERE team_id = ?')
+      .get(teamId) as any;
+
+    logger.info('DB query result:', { row, teamId });
+
+    const categories = getWorkspaceCategories(teamId)
+
+    if (!row) {
+      logger.info('No settings found for team, using defaults', { teamId });
+      return {
+        ...DEFAULT_SETTINGS,
+        categories
+      }
+    }
+
+    return {
+      officeName: row.office_name,
+      officeAddress: row.office_address,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      timezone: row.timezone,
+      categories
+    }
+  } catch (error) {
+    logger.error({
+      msg: 'Error fetching workspace settings, using defaults',
+      error,
+      teamId
+    });
+    return {
+      ...DEFAULT_SETTINGS,
+      categories: DEFAULT_SETTINGS.categories
+    };
   }
 }
 
@@ -292,7 +333,9 @@ export const saveWorkspaceSettings = async (
         )
 
         // Save categories if present
-        if (Array.isArray(settings.categories)) {
+        if (!settings.categories) {
+          initializeWorkspaceCategories(teamId)
+        } else {
           saveWorkspaceCategories(teamId, settings.categories)
         }
 
@@ -306,7 +349,7 @@ export const saveWorkspaceSettings = async (
           error,
           teamId
         })
-        throw error // Re-throw to trigger rollback
+        throw error
       }
     })()
   } catch (error) {
@@ -318,3 +361,33 @@ export const saveWorkspaceSettings = async (
     throw new Error('Failed to save workspace settings')
   }
 }
+
+export const getAllWorkspaceIds = () =>
+  tryCatch(async () => {
+    const rows = db.query('SELECT team_id FROM schedules WHERE team_id IS NOT NULL').all() as Array<{ team_id: string }>
+    return rows.map(row => row.team_id)
+  }, 'Error getting workspace IDs')
+
+export const cleanupInvalidData = () =>
+  tryCatch(async () => {
+    const deleted = db.run('DELETE FROM schedules WHERE team_id IS NULL')
+    if (deleted.changes > 0) {
+      logger.info(`Cleaned up ${deleted.changes} invalid schedule entries`)
+    }
+  }, 'Error cleaning up invalid data')
+
+export const initializeWorkspaceCategories = (teamId: string) =>
+  tryCatch(async () => {
+    if (!teamId) {
+      throw new CategoryError('Team ID is required')
+    }
+
+    const existing = db
+      .query('SELECT COUNT(*) as count FROM workspace_categories WHERE team_id = ?')
+      .get(teamId) as { count: number }
+
+    if (existing.count === 0) {
+      logger.info(`Initializing default categories for team ${teamId}`)
+      await saveWorkspaceCategories(teamId, DEFAULT_CATEGORIES)
+    }
+  }, 'Error initializing workspace categories')

@@ -1,7 +1,7 @@
 import type { Block, KnownBlock } from '@slack/types'
 import type { DaySchedule } from '../types/schedule'
 import { format, isBefore, isToday, startOfDay } from 'date-fns'
-import { AttendanceStatus, STATUS_OPTIONS, WEEK_LABELS } from '../constants'
+import {  STATUS_OPTIONS, WEEK_LABELS } from '../constants'
 import { logger } from '../utils/logger'
 import {
   getWeather,
@@ -10,7 +10,7 @@ import {
   type WeatherData,
 } from '../utils/weather'
 import { getDailyQuote } from '../utils/quotes'
-import type { WorkspaceSettings } from '../services/storage'
+import { getWorkspaceSettings, type WorkspaceSettings } from '../services/storage'
 
 function normalizeUserId(userId: string): string {
   if (!userId) return ''
@@ -181,7 +181,15 @@ export const createDayBlock = (
   currentWeek: number,
   userId: string,
   weather: WeatherData | null,
+  settings: WorkspaceSettings,
+  teamId: string,
 ): (KnownBlock | Block)[] | null => {
+  const userStatus = schedule.attendees.find(
+    (a) => normalizeUserId(a.userId) === normalizeUserId(userId),
+  )?.status
+  // const settings = getWorkspaceSettings(teamId)
+  const enabledCategories = settings.categories.filter(c => c.isEnabled)
+  const categoryMap = new Map(enabledCategories.map(c => [c.id, c]))
   const scheduleDate = new Date(
     schedule.year,
     schedule.month - 1,
@@ -217,14 +225,14 @@ export const createDayBlock = (
           temp: `${forecast.temperatureMax}°/${forecast.temperatureMin}°C`,
           description: WEATHER_CODES[forecast.weatherCode],
           // Note: daily forecast might not have feels like temp
+
         }
+        logger.info(dayWeather)
       }
     }
   }
 
-  const userStatus = schedule.attendees.find(
-    (a) => normalizeUserId(a.userId) === normalizeUserId(userId),
-  )?.status
+
   // Simple categorization of users
   const officeUsers = schedule.attendees.filter((a) => a.status === 'office')
   const remoteUsers = schedule.attendees.filter((a) => a.status === 'remote')
@@ -287,89 +295,93 @@ export const createDayBlock = (
     )
   }
 
-  blocks.push(
-    // Office section
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `🏢 Office _(${officeUsers.length} going)_\n`,
+  if (categoryMap.has('office')) {
+    blocks.push(
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `🏢 Office _(${officeUsers.length} going)_\n`,
+        },
       },
-    },
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: renderUserList(officeUsers, 'No one in the office'),
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: renderUserList(officeUsers, 'No one in the office'),
+        },
       },
-    },
-    spacer,
-    // Home section
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: '🏠 Home',
-      },
-    },
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: renderUserList(remoteUsers, 'No one working remotely'),
-      },
-    },
-    spacer,
-    // Traveling section
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: '✈️ Traveling for work',
-      },
-    },
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: renderUserList(travelingUsers, 'No one traveling'),
-      },
-    },
-    spacer,
-    // Vacation section
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: '🌴 Holiday',
-      },
-    },
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: renderUserList(clientUsers, 'No one on holiday'),
-      },
-    },
-    spacer,
-  )
+      spacer
+    )
+  }
 
-  const statusEmoji =
-    userStatus === 'office'
-      ? '🏢 Office'
-      : userStatus === 'remote'
-        ? '🏠 Home'
-        : userStatus === 'traveling'
-          ? '✈️ Traveling'
-          : userStatus === 'client'
-            ? '🌴 Vacation'
-            : '🔘 Set your status...'
+  if (categoryMap.has('remote')) {
+    blocks.push(
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '🏠 Home',
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: renderUserList(remoteUsers, 'No one working remotely'),
+        },
+      },
+      spacer
+    )
+  }
+
+  if (categoryMap.has('traveling')) {
+    blocks.push(
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '✈️ Traveling for work',
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: renderUserList(travelingUsers, 'No one traveling'),
+        },
+      },
+      spacer
+    )
+  }
+
+  if (categoryMap.has('vacation')) {
+    blocks.push(
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '🌴 Holiday',
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: renderUserList(clientUsers, 'No one on holiday'),
+        },
+      },
+      spacer
+    )
+  }
 
   if (isHomeView) {
-    const statusOptions = STATUS_OPTIONS.map((option) => ({
-      ...option,
-      value: `status:${option.value}:${day}:${currentWeek}`,
-    }))
+    const statusOptions = STATUS_OPTIONS
+      .filter(option => categoryMap.has(option.value))
+      .map((option) => ({
+        ...option,
+        value: `status:${option.value}:${day}:${currentWeek}`,
+      }))
 
     blocks.push({
       type: 'actions',
@@ -378,14 +390,16 @@ export const createDayBlock = (
           type: 'static_select' as const,
           placeholder: {
             type: 'plain_text' as const,
-            text: userStatus ? statusEmoji : '🔘 Set your status...',
+            text: userStatus && categoryMap.has(userStatus)
+              ? `${categoryMap.get(userStatus)?.emoji} ${categoryMap.get(userStatus)?.displayName}`
+              : '🔘 Set your status...',
             emoji: true,
           },
           options: statusOptions,
-          initial_option: userStatus
+          initial_option: userStatus && categoryMap.has(userStatus)
             ? statusOptions.find((option) =>
-                option.value.includes(`status:${userStatus}:`),
-              )
+              option.value.includes(`status:${userStatus}:`),
+            )
             : undefined,
           action_id: `set_status_${day.toLowerCase()}_${currentWeek}`,
         },

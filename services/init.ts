@@ -25,3 +25,4 @@ export const initializeDB = () =>
     const stored = await loadSchedule(DEFAULT_TEAM_ID)
     return stored
   }, 'Error initializing database')
+

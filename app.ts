@@ -1,13 +1,13 @@
 import { logger } from './utils/logger'
 import { App } from '@slack/bolt'
 import { createMonthSchedule } from './services/schedule'
-import { setupWeeklyReset } from './utils/schedule-reset'
+import { resetWorkspaceSchedules, setupWeeklyReset, shouldResetSchedule } from './utils/schedule-reset'
 import { tryCatch } from './utils/error-handlers'
 import { setupEventHandlers } from './handlers'
 import { initializeDB } from './services/init'
 import { startServer } from './services/server'
 import { installationStore } from './services/installation'
-import { deleteWorkspaceData, loadSchedule } from './services/storage'
+import { deleteWorkspaceData, getAllWorkspaceIds, loadSchedule, saveSchedule } from './services/storage'
 import type { MonthSchedule } from './types/schedule'
 
 // State
@@ -38,7 +38,9 @@ const initApp = async () => {
         logger.error('No team ID found in context during installation')
         return
       }
-      await loadSchedule(teamId)
+      const schedule = createMonthSchedule(shouldResetSchedule())
+      await saveSchedule(teamId, schedule)
+      state.set(teamId, schedule)
       logger.info(`App installed in workspace ${teamId}`)
     } catch (error) {
       logger.error('Error handling installation:', error)
@@ -71,6 +73,20 @@ const start = () =>
   tryCatch(async () => {
     logger.info('Starting app initialization...')
     const app = await initApp()
+
+    // First load existing schedules into state
+    const workspaceIds = await getAllWorkspaceIds()
+    if (workspaceIds) {
+      for (const teamId of workspaceIds) {
+        const schedule = await loadSchedule(teamId)
+        if (schedule) {
+          state.set(teamId, schedule)
+        }
+      }
+      logger.info(`Loaded ${workspaceIds.length} schedules into state`)
+    }
+
+    await resetWorkspaceSchedules(state)
 
     setupEventHandlers(app, state)
     setupWeeklyReset(

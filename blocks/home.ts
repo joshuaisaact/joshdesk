@@ -8,6 +8,7 @@ import {
 import { format } from 'date-fns/format'
 import { getWeather } from '../utils/weather'
 import { getWorkspaceSettings } from '../services/storage'
+import { logger } from '../utils/logger.ts'
 
 export const generateBlocks = async (
   monthSchedule: MonthSchedule,
@@ -18,9 +19,19 @@ export const generateBlocks = async (
 ): Promise<(KnownBlock | Block)[]> => {
   const settings = getWorkspaceSettings(teamId)
 
+
   const blocks: (KnownBlock | Block)[] = [
     ...(await createHeaderBlock(isHomeView, currentWeek, settings)),
   ]
+
+  logger.info('Settings for weather:', {
+    teamId,
+    lat: settings.latitude,
+    long: settings.longitude,
+    timezone: settings.timezone,
+    officeName: settings.officeName // Add this to verify we have the right settings
+  });
+
 
   const weather = await getWeather(
     settings.latitude,
@@ -42,21 +53,30 @@ export const generateBlocks = async (
   }
 
   let hasVisibleDays = false
-
-  Object.entries(weekSchedule).forEach(([day, schedule]) => {
-    const dayBlocks = createDayBlock(
+  logger.info('dayblocks called with:', {
+    isHomeView: isHomeView,
+    currentWeek: currentWeek,
+    userId: userId,
+    weather: weather,
+    settings: settings,
+    teamId: teamId,
+  })
+  for (const [day, schedule] of Object.entries(weekSchedule)) {
+    const dayBlocks = await createDayBlock(
       day,
       schedule,
       isHomeView,
       currentWeek,
       userId,
       weather,
+      settings,
+      teamId,
     )
     if (dayBlocks) {
       hasVisibleDays = true
       blocks.push(...dayBlocks)
     }
-  })
+  }
 
   if (!hasVisibleDays) {
     blocks.push({

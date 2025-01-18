@@ -30,3 +30,4 @@ export const appHomeOpenedHandler = async (
     console.error(error)
   }
 }
+

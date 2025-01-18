@@ -6,21 +6,22 @@ export const createSettingsModal = (settings: WorkspaceSettings): ModalView => (
   callback_id: 'settings_submit',
   title: {
     type: 'plain_text',
-    text: 'Office Settings',
+    text: 'Workspace Settings',
     emoji: true,
   },
   submit: {
     type: 'plain_text',
-    text: 'Save',
+    text: 'Save Changes',
     emoji: true,
   },
   blocks: [
     {
-      type: 'section',
+      type: 'header',
       text: {
-        type: 'mrkdwn',
-        text: '*Office Location*',
-      },
+        type: 'plain_text',
+        text: 'Office Location',
+        emoji: true
+      }
     },
     {
       type: 'input',
@@ -52,6 +53,13 @@ export const createSettingsModal = (settings: WorkspaceSettings): ModalView => (
           text: 'Start typing an address...',
           emoji: true,
         },
+        initial_option: {
+          text: {
+            type: 'plain_text',
+            text: settings.officeAddress
+          },
+          value: 'initial',
+        },
         min_query_length: 3,
       },
     },
@@ -59,86 +67,50 @@ export const createSettingsModal = (settings: WorkspaceSettings): ModalView => (
       type: 'divider',
     },
     {
+      type: 'header',
+      text: {
+        type: 'plain_text',
+        text: 'Status Categories',
+        emoji: true
+      }
+    },
+    ...settings.categories.map((category) => ({
       type: 'section',
+      block_id: `category_${category.id}`,
       text: {
         type: 'mrkdwn',
-        text: '*Status Categories*',
+        text: `${category.emoji} *${category.displayName}*`,
       },
-    },
-    ...settings.categories.map((category, index) => ([
-      {
-        type: 'section',
-        block_id: `category_${index}`,
-        text: {
-          type: 'mrkdwn',
-          text: `${category.emoji} ${category.displayName}`,
-        },
-        accessory: {
-          type: 'button',
+      accessory: {
+        type: 'radio_buttons',
+        action_id: `toggle_category_${category.id}`,
+        initial_option: {
           text: {
             type: 'plain_text',
-            text: category.isEnabled ? 'Disable' : 'Enable',
-            emoji: true,
+            text: category.isEnabled ? 'Enabled' : 'Hidden',
+            emoji: true
           },
-          value: `toggle_category_${category.id}`,
-          action_id: `toggle_category_${index}`,
-          style: category.isEnabled ? 'danger' : 'primary',
+          value: category.isEnabled ? 'enabled' : 'disabled'
         },
-      },
-      {
-        type: 'actions',
-        block_id: `category_actions_${index}`,
-        elements: [
+        options: [
           {
-            type: 'button',
             text: {
               type: 'plain_text',
-              text: '⬆️',
-              emoji: true,
+              text: 'Enabled',
+              emoji: true
             },
-            value: `move_up_${category.id}`,
-            action_id: `move_category_up_${index}`,
-            style: 'primary',
+            value: 'enabled'
           },
           {
-            type: 'button',
             text: {
               type: 'plain_text',
-              text: '⬇️',
-              emoji: true,
+              text: 'Hidden',
+              emoji: true
             },
-            value: `move_down_${category.id}`,
-            action_id: `move_category_down_${index}`,
-            style: 'primary',
-          },
-          {
-            type: 'button',
-            text: {
-              type: 'plain_text',
-              text: 'Edit',
-              emoji: true,
-            },
-            value: `edit_${category.id}`,
-            action_id: `edit_category_${index}`,
-          },
-        ],
+            value: 'disabled'
+          }
+        ]
       }
-    ])).flat(),
-    {
-      type: 'actions',
-      block_id: 'add_category',
-      elements: [
-        {
-          type: 'button',
-          text: {
-            type: 'plain_text',
-            text: '➕ Add Category',
-            emoji: true,
-          },
-          action_id: 'add_new_category',
-          style: 'primary',
-        },
-      ],
-    },
+    }))
   ],
 })
