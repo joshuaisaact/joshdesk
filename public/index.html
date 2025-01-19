@@ -1,56 +1,190 @@
 <!doctype html>
-<html lang="en" class="h-full bg-gray-900">
+<html lang="en" class="h-full">
   <head>
     <title>Josh Desk - Office Attendance Made Simple</title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link
-      rel="icon"
-      type="image/png"
-      href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4//8/AAX+Av7czFnnAAAAAElFTkSuQmCC"
+    <meta
+      name="description"
+      content="Simple office attendance tracking and team coordination through Slack"
     />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="/favicon.ico" />
   </head>
-  <body class="h-full">
-    <div
-      class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-900 text-white"
-    >
-      <div class="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 class="text-center text-3xl font-extrabold">Josh Desk</h1>
-        <p class="mt-2 text-center text-sm text-gray-400">
-          Office attendance made simple
-        </p>
+  <body class="h-full bg-gradient-to-b from-teal-900 to-teal-800">
+    <div class="min-h-full flex flex-col justify-center py-12 px-6 lg:px-8">
+      <!-- Hero Section -->
+      <div class="sm:mx-auto sm:w-full sm:max-w-3xl text-center">
+        <div class="flex justify-center mb-8">
+          <img src="/logo.png" alt="Josh Desk Logo" class="w-24 h-24" />
+        </div>
+        <h1 class="text-4xl font-bold text-white mb-4">Josh Desk</h1>
+        <p class="text-xl text-teal-100 mb-8">Office attendance made simple</p>
+
+        <a
+          href="{{SLACK_INSTALL_URL}}"
+          class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-teal-900 bg-teal-100 hover:bg-white"
+        >
+          Add to Slack
+        </a>
       </div>
 
-      <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div
-          class="bg-gray-800 py-8 px-4 shadow sm:rounded-lg sm:px-10 space-y-6"
-        >
-          <div>
-            <h2 class="text-lg font-medium">Features</h2>
-            <ul
-              class="mt-3 text-sm text-gray-400 list-disc list-inside space-y-2"
-            >
-              <li>Track office & remote attendance</li>
-              <li>Automatic Slack status updates</li>
-              <li>Weather forecasts for office days</li>
-              <li>Simple team coordination</li>
-            </ul>
+      <div class="mt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <!-- Feature tiles using teal colors -->
+          <div
+            class="bg-teal-800/50 rounded-lg p-6 border border-teal-700/50 hover:border-teal-600/50 transition"
+          >
+            <div class="text-teal-200 text-2xl mb-4">🏢</div>
+            <h3 class="text-lg font-medium text-white mb-2">
+              Track Attendance
+            </h3>
+            <p class="text-teal-100">
+              Easily coordinate office days with your team using a simple weekly
+              view
+            </p>
           </div>
 
-          <div class="pt-4">
-            <a
-              href="{{SLACK_INSTALL_URL}}"
-              class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Add to Slack
-            </a>
+          <!-- Feature 2 -->
+          <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+            <div class="text-indigo-400 text-2xl mb-4">⚡️</div>
+            <h3 class="text-lg font-medium text-white mb-2">
+              Automatic Updates
+            </h3>
+            <p class="text-slate-400">
+              Slack status automatically updates based on your office schedule
+            </p>
+          </div>
+
+          <!-- Feature 3 -->
+          <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+            <div class="text-indigo-400 text-2xl mb-4">☔️</div>
+            <h3 class="text-lg font-medium text-white mb-2">
+              Weather Integration
+            </h3>
+            <p class="text-slate-400">
+              Check the weather forecast for your office days at a glance
+            </p>
+          </div>
+
+          <!-- Feature 4 -->
+          <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+            <div class="text-indigo-400 text-2xl mb-4">📅</div>
+            <h3 class="text-lg font-medium text-white mb-2">Weekly Schedule</h3>
+            <p class="text-slate-400">
+              View and update your schedule up to four weeks in advance
+            </p>
+          </div>
+
+          <!-- Feature 5 -->
+          <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+            <div class="text-indigo-400 text-2xl mb-4">🔔</div>
+            <h3 class="text-lg font-medium text-white mb-2">Smart Reminders</h3>
+            <p class="text-slate-400">
+              Get weekly reminders to update your schedule
+            </p>
+          </div>
+
+          <!-- Feature 6 -->
+          <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+            <div class="text-indigo-400 text-2xl mb-4">⚙️</div>
+            <h3 class="text-lg font-medium text-white mb-2">Easy Setup</h3>
+            <p class="text-slate-400">
+              Install in seconds and customize for your workspace
+            </p>
           </div>
         </div>
       </div>
 
-      <footer class="mt-8 text-center text-sm text-gray-400">
-        <p>Built with ❤️ using Bun & Slack Bolt</p>
+      <div class="mt-24 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-2xl font-bold text-white mb-8 text-center">
+          See it in action
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div class="bg-teal-800/50 rounded-lg p-4 border border-teal-700/50">
+            <video
+              class="rounded-lg w-full"
+              poster="/video-thumbnail-1.jpg"
+              preload="none"
+              controls
+              muted
+            >
+              <source src="/demo-home-tab.mp4" type="video/mp4" />
+            </video>
+            <p class="text-teal-100 text-center mt-4">
+              Update your schedule in the Home tab
+            </p>
+          </div>
+          <div class="bg-teal-800/50 rounded-lg p-4 border border-teal-700/50">
+            <video
+              class="rounded-lg w-full"
+              poster="/video-thumbnail-2.jpg"
+              preload="none"
+              controls
+              muted
+            >
+              <source src="/demo-reminders.mp4" type="video/mp4" />
+            </video>
+            <p class="text-teal-100 text-center mt-4">
+              Weekly reminders keep everyone in sync
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Screenshots -->
+      <div class="mt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="bg-slate-800/50 rounded-lg p-8 border border-slate-700">
+          <img
+            src="/api/placeholder/800/500"
+            alt="Josh Desk screenshot"
+            class="rounded-lg shadow-2xl w-full"
+          />
+        </div>
+      </div>
+
+      <!-- FAQ -->
+      <div class="mt-24 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-2xl font-bold text-white mb-8 text-center">
+          Frequently Asked Questions
+        </h2>
+        <div class="space-y-8">
+          <div>
+            <h3 class="text-lg font-medium text-white mb-2">
+              Is Josh Desk free to use?
+            </h3>
+            <p class="text-slate-400">
+              Yes, Josh Desk is currently free for all teams.
+            </p>
+          </div>
+          <div>
+            <h3 class="text-lg font-medium text-white mb-2">
+              What permissions does Josh Desk need?
+            </h3>
+            <p class="text-slate-400">
+              Josh Desk needs permissions to send messages, update your Slack
+              status, and manage its home tab view.
+            </p>
+          </div>
+          <div>
+            <h3 class="text-lg font-medium text-white mb-2">
+              Can I customize categories beyond office/remote?
+            </h3>
+            <p class="text-slate-400">
+              Yes, workspace admins can customize status categories to match
+              your team's needs.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="mt-24 text-center text-sm text-teal-200">
+        <div class="space-x-4">
+          <a href="/privacy" class="hover:text-white">Privacy Policy</a>
+          <a href="/support" class="hover:text-white">Support</a>
+        </div>
+        <p class="mt-4">Built with ❤️ using Bun & Slack Bolt</p>
       </footer>
     </div>
   </body>

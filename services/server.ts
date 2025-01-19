@@ -6,7 +6,8 @@ export const startServer = async (slackApp: App) => {
   await slackApp.start(process.env.PORT || 3000)
 
   // Read the HTML template once at startup
-  const template = await Bun.file('./public/index.html').text()
+  const indexTemplate = await Bun.file('./public/index.html').text()
+  const privacyTemplate = await Bun.file('./public/privacy.html').text()
 
   // Start landing page server
   serve({
@@ -14,23 +15,32 @@ export const startServer = async (slackApp: App) => {
     fetch(req) {
       const url = new URL(req.url)
 
-      // Only serve the landing page on '/'
-      if (url.pathname !== '/') {
-        return new Response('Not Found', { status: 404 })
+      // Route based on pathname
+      switch (url.pathname) {
+        case '/':
+          // Replace template variables for index
+          const html = indexTemplate.replace(
+            '{{SLACK_INSTALL_URL}}',
+            process.env.SLACK_INSTALL_URL || '#',
+          )
+          return new Response(html, {
+            headers: {
+              'Content-Type': 'text/html',
+              'Cache-Control': 'public, max-age=3600',
+            },
+          })
+
+        case '/privacy':
+          return new Response(privacyTemplate, {
+            headers: {
+              'Content-Type': 'text/html',
+              'Cache-Control': 'public, max-age=3600',
+            },
+          })
+
+        default:
+          return new Response('Not Found', { status: 404 })
       }
-
-      // Replace template variables
-      const html = template.replace(
-        '{{SLACK_INSTALL_URL}}',
-        process.env.SLACK_INSTALL_URL || '#',
-      )
-
-      return new Response(html, {
-        headers: {
-          'Content-Type': 'text/html',
-          'Cache-Control': 'public, max-age=3600',
-        },
-      })
     },
   })
 }

@@ -2,7 +2,7 @@ import type { Attendee, MonthSchedule, WeekSchedule } from '../types/schedule'
 import { AttendanceStatus } from '../constants'
 import { addWeeks, addDays, startOfWeek, nextMonday, isWeekend } from 'date-fns'
 import { updateUserSlackStatus } from './status-update.ts'
-import type { App } from '@slack/bolt'
+import type { WebClient } from '@slack/web-api'
 
 const createWeekSchedule = (startDate: Date): WeekSchedule => {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
@@ -45,7 +45,7 @@ export const updateAttendance = async (
   week: number,
   userId: string,
   status: AttendanceStatus,
-  app: App,
+  client: WebClient,
   teamId: string,
 ): Promise<MonthSchedule> => {
   if (!day || !(day in schedule[week])) return schedule
@@ -81,7 +81,7 @@ export const updateAttendance = async (
     )
 
     await updateUserSlackStatus(
-      app,
+      client,
       userId,
       status, // Use the status directly, don't map to 'home'
       teamId,

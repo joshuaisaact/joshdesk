@@ -23,6 +23,7 @@ import {
 import { generateSettingsBlocks } from '../blocks/settings.ts'
 import { updateUserSlackStatus } from '../services/status-update.ts'
 import { checkIfAdmin } from '../utils/slack.ts'
+import { handleReminderAction } from './reminder-buttons.ts'
 
 const getWorkspaceSchedule = async (
   teamId: string | undefined,
@@ -81,6 +82,16 @@ export const setupEventHandlers = (
       })
     } catch (error) {
       logger.error({ msg: 'Error opening settings modal', error })
+    }
+  })
+
+  app.action<BlockAction>(/^reminder_status_.*/, async (args) => {
+    try {
+      const schedule = await getWorkspaceSchedule(args.context.teamId, state)
+      if (!schedule) return
+      await handleReminderAction(args, schedule, state)
+    } catch (error) {
+      logger.error({ err: error, msg: 'Error handling reminder action' })
     }
   })
 
@@ -279,18 +290,15 @@ export const setupEventHandlers = (
 
         const [_, status, day, week] = action.selected_option.value.split(':')
 
-        // Check if user is admin
-        // const isAdmin = await checkIfAdmin(client, body.user.id)
-
-        // Update the schedule with the new parameters
+        // Update the schedule with all required parameters
         const updatedSchedule = await updateAttendance(
           schedule,
           day,
           parseInt(week),
           body.user.id,
           status as AttendanceStatus,
-          app,
-          context.teamId!,
+          client, // Previously missing
+          context.teamId!, // Previously missing
         )
 
         if (context.teamId) {

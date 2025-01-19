@@ -4,10 +4,13 @@ import { loadSchedule, saveSchedule } from '../services/storage'
 import { logger } from './logger'
 import { format } from 'date-fns/format'
 import { tryCatch } from './error-handlers.ts'
+import type { App } from '@slack/bolt'
+import { sendWeeklyReminders } from '../services/reminders.ts'
 
 export const setupWeeklyReset = (
   updateSchedule: (teamId: string, schedule: MonthSchedule) => void,
   state: Map<string, MonthSchedule>,
+  app: App,
   isTestMode: boolean = false,
 ) => {
   const now = new Date()
@@ -45,6 +48,9 @@ export const setupWeeklyReset = (
           updateSchedule(teamId, newSchedule)
           await saveSchedule(teamId, newSchedule)
 
+          // Send reminders after updating the schedule
+          await sendWeeklyReminders(app, newSchedule, teamId)
+
           logger.info({
             msg: `Schedule reset for workspace ${teamId}`,
             timestamp: format(new Date(), 'EEEE do MMMM yyyy, h:mm a'),
@@ -63,7 +69,7 @@ export const setupWeeklyReset = (
       }
 
       // Schedule next reset
-      setupWeeklyReset(updateSchedule, state, isTestMode)
+      setupWeeklyReset(updateSchedule, state, app, isTestMode)
     },
     isTestMode ? 30000 : msUntilReset,
   )
@@ -83,7 +89,9 @@ export const shouldResetSchedule = (): boolean => {
   return isFridayAfternoon || now.getDay() >= 5
 }
 
-export const resetWorkspaceSchedules = async (state: Map<string, MonthSchedule>) =>
+export const resetWorkspaceSchedules = async (
+  state: Map<string, MonthSchedule>,
+) =>
   tryCatch(async () => {
     if (!shouldResetSchedule()) return
 
@@ -95,7 +103,6 @@ export const resetWorkspaceSchedules = async (state: Map<string, MonthSchedule>)
         const oldSchedule = await loadSchedule(teamId)
 
         if (oldSchedule) {
-
           for (let week = 1; week < 4; week++) {
             if (oldSchedule[week]) {
               newSchedule[week - 1] = oldSchedule[week]
@@ -119,7 +126,7 @@ export const isScheduleAlreadyReset = (schedule: MonthSchedule): boolean => {
   const firstMonday = new Date(
     firstWeek.Monday.year,
     firstWeek.Monday.month - 1,
-    firstWeek.Monday.date
+    firstWeek.Monday.date,
   )
 
   const today = new Date()

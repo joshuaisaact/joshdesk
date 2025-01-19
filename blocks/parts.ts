@@ -336,7 +336,7 @@ export function createDayBlock(
             text:
               userStatus && categoryMap.has(userStatus)
                 ? `${categoryMap.get(userStatus)?.emoji} ${categoryMap.get(userStatus)?.displayName}`
-                : `Set ${format(scheduleDate, ' eeee')} status...`,
+                : `${format(scheduleDate, 'EEEE')} - Set status`, // Updated placeholder text
             emoji: true,
           },
           options: enabledCategories.map((c) => ({

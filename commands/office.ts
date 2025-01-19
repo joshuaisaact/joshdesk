@@ -1,5 +1,5 @@
 import type { AllMiddlewareArgs, SlackCommandMiddlewareArgs } from '@slack/bolt'
-import { generateBlocks } from '../blocks/home'
+import { generateOfficeBlocks } from '../blocks/office'
 import type { MonthSchedule } from '../types/schedule'
 
 export const officeCommandHandler = async (
@@ -9,7 +9,7 @@ export const officeCommandHandler = async (
 ) => {
   await ack()
   await say({
-    blocks: await generateBlocks(schedule, false, 0, '', teamId),
+    blocks: await generateOfficeBlocks(schedule, 0, teamId),
     text: "Here's who's in the office this week",
   })
 }

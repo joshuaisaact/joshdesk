@@ -115,6 +115,7 @@ const start = () =>
         state.set(teamId, newSchedule)
       },
       state,
+      app,
       Bun.env.SCHEDULE_TEST_MODE === 'true',
     )
 

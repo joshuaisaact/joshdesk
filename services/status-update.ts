@@ -4,9 +4,10 @@ import { getWorkspaceSettings } from './storage'
 import { endOfDay, getUnixTime, isSameDay } from 'date-fns'
 import { format } from 'date-fns/format'
 import { installationStore } from './installation'
+import type { WebClient } from '@slack/web-api'
 
 export async function updateUserSlackStatus(
-  app: App,
+  client: WebClient,
   userId: string,
   status: string,
   teamId: string,
@@ -39,7 +40,7 @@ export async function updateUserSlackStatus(
       throw new Error('No user token found for installation')
     }
 
-    await app.client.users.profile.set({
+    await client.users.profile.set({
       token: installation.user.token,
       user: cleanUserId,
       profile: {
