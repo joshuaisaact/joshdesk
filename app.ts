@@ -1,92 +1,133 @@
-import { App, type BlockAction } from '@slack/bolt'
-import { createMonthSchedule } from './services/schedule'
-import { loadSchedule, saveSchedule } from './services/storage'
-import { appHomeOpenedHandler } from './events/app-home'
-import { officeCommandHandler } from './commands/office'
-import { homeButtonHandler, officeButtonHandler } from './interactions/buttons'
-import { generateBlocks } from './blocks/home'
-import type { HomeView, SelectWeekAction } from './types/slack'
-import { setupWeeklyReset } from './utils/schedule-reset'
+import { logger } from './utils/logger'
+import { App } from '@slack/bolt'
+import {
+  resetWorkspaceSchedules,
+  setupWeeklyReset,
+  shouldResetSchedule,
+} from './utils/schedule-reset'
+import { tryCatch } from './utils/error-handlers'
+import { setupEventHandlers } from './handlers'
+import { startServer } from './services/server'
+import {
+  storeInstallation,
+  fetchInstallation,
+  deleteInstallation,
+} from './services/installation'
+import {
+  deleteWorkspaceData,
+  getAllWorkspaceIds,
+  loadSchedule,
+  saveSchedule,
+} from './services/storage'
+import type { MonthSchedule } from './types/schedule'
+import { createMonthSchedule } from './services/schedule.ts'
 
 // State
-let officeSchedule = createMonthSchedule()
-let currentWeek = 0
+const state = new Map<string, MonthSchedule>()
 
-const initializeSchedule = async () => {
-  const stored = await loadSchedule()
-  if (stored) {
-    officeSchedule = stored
-  }
-}
-
-// App initialization
-const app = new App({
-  token: Bun.env.SLACK_BOT_TOKEN,
-  signingSecret: Bun.env.SLACK_SIGNING_SECRET,
-  socketMode: true,
-  appToken: Bun.env.SLACK_APP_TOKEN,
-})
-
-// Event handlers
-app.event('app_home_opened', async (args) => {
-  await appHomeOpenedHandler(args, officeSchedule, currentWeek)
-})
-
-// Command handlers
-app.command('/office', async (args) => {
-  await officeCommandHandler(args, officeSchedule)
-})
-
-// Interactive component handlers
-app.action<BlockAction>(/office_.*/, async (args) => {
-  const updatedSchedule = await officeButtonHandler(args, officeSchedule)
-  if (updatedSchedule) {
-    officeSchedule = updatedSchedule
-    await saveSchedule(officeSchedule)
-  }
-})
-
-app.action<BlockAction>(/home_.*/, async (args) => {
-  const updatedSchedule = await homeButtonHandler(args, officeSchedule)
-  if (updatedSchedule) {
-    officeSchedule = updatedSchedule
-    await saveSchedule(officeSchedule)
-  }
-})
-
-app.action<SelectWeekAction>('select_week', async ({ ack, body, client }) => {
-  await ack()
-  const selectedWeek = parseInt(body.actions[0].selected_option.value)
-  currentWeek = selectedWeek
-
-  await client.views.publish({
-    user_id: body.user.id,
-    view: {
-      type: 'home',
-      blocks: generateBlocks(officeSchedule, true, selectedWeek),
-    } as HomeView,
+const initApp = async () => {
+  const app = new App({
+    signingSecret: Bun.env.SLACK_SIGNING_SECRET,
+    clientId: Bun.env.SLACK_CLIENT_ID,
+    clientSecret: Bun.env.SLACK_CLIENT_SECRET,
+    stateSecret: Bun.env.SLACK_STATE_SECRET,
+    scopes: ['chat:write', 'commands', 'users:read', 'users.profile:write'],
+    installationStore: {
+      storeInstallation,
+      fetchInstallation,
+      deleteInstallation,
+    },
+    socketMode: true,
+    appToken: Bun.env.SLACK_APP_TOKEN,
+    redirectUri: 'https://joshdesk.live/slack/oauth/callback',
+    installerOptions: {
+      redirectUriPath: '/slack/oauth/callback',
+      // directInstall: true,
+      stateVerification: false, // Disable state verification
+    },
   })
-})
 
-// Startup
-const start = async () => {
-  try {
-    await initializeSchedule()
+  // Add error handler
+  app.error(async (error) => {
+    console.error('Detailed app error:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    })
+  })
 
-    setupWeeklyReset((newSchedule) => {
-      officeSchedule = newSchedule
-      currentWeek = 0
-    }, Bun.env.SCHEDULE_TEST_MODE === 'true')
+  // Initialize the event handlers with workspace awareness
+  app.event('app_installed', async ({ context }) => {
+    try {
+      const teamId = context.teamId
+      if (!teamId) {
+        logger.error('No team ID found in context during installation')
+        return
+      }
 
-    await app.start(process.env.PORT || 3000)
-    console.log('⚡️ Joshicely app is running!')
-  } catch (error) {
-    console.error('Failed to start app:', error)
-    process.exit(1) // Exit with error code
-  }
+      const schedule = createMonthSchedule(shouldResetSchedule())
+      await saveSchedule(teamId, schedule)
+      state.set(teamId, schedule)
+      logger.info(`App installed in workspace ${teamId}`)
+    } catch (error) {
+      logger.error('Error handling installation:', error)
+    }
+  })
+
+  app.event('app_uninstalled', async ({ context }) => {
+    try {
+      const teamId = context.teamId
+      if (!teamId) {
+        logger.error('No team ID found in context during uninstall')
+        return
+      }
+      await deleteWorkspaceData(teamId)
+      await deleteInstallation({
+        teamId,
+        enterpriseId: undefined,
+        isEnterpriseInstall: false,
+      })
+      logger.info(`App uninstalled from workspace ${teamId}`)
+    } catch (error) {
+      logger.error('Error handling uninstall:', error)
+    }
+  })
+
+  return app
 }
 
-start().catch(error => {
-  console.error('Unhandled error during startup:', error)
-  process.exit(1)
-})
+const start = () =>
+  tryCatch(async () => {
+    logger.info('Starting app initialization...')
+    const app = await initApp()
+
+    // First load existing schedules into state
+    const workspaceIds = await getAllWorkspaceIds()
+    if (workspaceIds) {
+      for (const teamId of workspaceIds) {
+        const schedule = await loadSchedule(teamId)
+        if (schedule) {
+          state.set(teamId, schedule)
+        }
+      }
+      logger.info(`Loaded ${workspaceIds.length} schedules into state`)
+    }
+
+    await resetWorkspaceSchedules(state)
+
+    setupEventHandlers(app, state)
+    setupWeeklyReset(
+      (teamId, newSchedule) => {
+        logger.info({ msg: 'Weekly reset triggered' })
+        state.set(teamId, newSchedule)
+      },
+      state,
+      app,
+      Bun.env.SCHEDULE_TEST_MODE === 'true',
+    )
+
+    await startServer(app)
+    logger.info('⚡️ JoshDesk app is running!')
+  }, 'Failed to start app')
+
+start()

@@ -1,8 +1,8 @@
 ## README.md
 
-# Joshicely
+# JoshDesk
 
-A Slack app for tracking office attendance.
+A Slack app for booking desks.
 
 ## Features
 
@@ -73,3 +73,7 @@ The app automatically resets the schedule every Friday at 12:00 PM, shifting all
 3. The schedule will reset every 30 seconds, allowing you to see the effect of the reset on the UI.
 
 Remember to set SCHEDULE_TEST_MODE=false or remove it from your .env file before deploying to production.
+
+## References
+
+https://github.com/slackapi/bolt-js/tree/main/examples/oauth
