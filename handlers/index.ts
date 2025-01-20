@@ -1,73 +1,76 @@
-import type { App, BlockAction } from '@slack/bolt'
+import type {
+  App,
+  BlockAction,
+  ButtonAction,
+  ViewSubmitAction,
+} from '@slack/bolt'
 import type { MonthSchedule } from '../types/schedule'
-import { appHomeOpenedHandler } from '../events/app-home'
+import { AttendanceStatus } from '../constants'
 import { officeCommandHandler } from '../commands/office'
-import { homeButtonHandler, officeButtonHandler } from '../interactions/buttons'
 import { generateBlocks } from '../blocks/home'
 import { logger } from '../utils/logger'
-import { saveSchedule } from '../services/storage'
-
-let currentWeek = 0
+import {
+  getWorkspaceSettings,
+  saveSchedule,
+  saveWorkspaceSettings,
+  type WorkspaceSettings,
+} from '../services/storage'
+import { createMonthSchedule, updateAttendance } from '../services/schedule'
+import { createSettingsModal } from '../modals/settings'
+import { getPlaceDetails, searchPlaces } from '../services/geocoding'
+import { handleReminderAction } from './reminder-buttons.ts'
+import { tryCatch } from '../utils/error-handlers.ts'
+import { getWorkspaceSchedule } from '../utils/workspace.ts'
+import { setupHomeHandlers } from './home.ts'
+import { setupSettingsHandlers } from './settings.ts'
+import { setupScheduleHandlers } from './schedule.ts'
 
 export const setupEventHandlers = (
   app: App,
-  state: { schedule: MonthSchedule },
+  state: Map<string, MonthSchedule>,
 ) => {
-  app.event('app_home_opened', async (args) => {
-    try {
-      await appHomeOpenedHandler(args, state.schedule, 0)
-    } catch (error) {
-      logger.error({ err: error, msg: 'Error handling app_home_opened' })
+  setupHomeHandlers(app, state)
+  setupSettingsHandlers(app, state)
+  setupScheduleHandlers(app, state)
+
+  const isButtonAction = (action: any): action is ButtonAction => {
+    return 'text' in action
+  }
+
+  app.action<BlockAction>(/^reminder_status_.*/, async (args) => {
+    // Type guard to ensure args.payload is ButtonAction
+    if (!isButtonAction(args.payload)) return
+
+    // Create a new args object with the correct type
+    const buttonArgs = {
+      ...args,
+      payload: args.payload as ButtonAction,
+      action: args.payload as ButtonAction,
+      body: args.body as BlockAction<ButtonAction>,
     }
+
+    await tryCatch(async () => {
+      const schedule = await getWorkspaceSchedule(args.context.teamId, state)
+      if (!schedule) return null
+      return handleReminderAction(buttonArgs, schedule, state)
+    }, 'Error handling reminder action')
   })
 
-  app.command('/office', async (args) => {
-    try {
-      await officeCommandHandler(args, state.schedule)
-    } catch (error) {
-      logger.error({ err: error, msg: 'Error handling /office' })
-    }
-  })
+  app.command('/office', async ({ command, context, ...rest }) => {
+    const schedule = await tryCatch(
+      async () => getWorkspaceSchedule(context.teamId, state),
+      'Error getting workspace schedule',
+    )
+    if (!schedule) return
 
-  app.action<BlockAction>(/office_.*/, async (args) => {
-    try {
-      const updatedSchedule = await officeButtonHandler(args, state.schedule)
-      if (updatedSchedule) {
-        state.schedule = updatedSchedule
-        await saveSchedule(updatedSchedule)
-      }
-    } catch (error) {
-      logger.error({ err: error, msg: 'Error handling office button' })
-    }
-  })
-
-  app.action<BlockAction>(/home_.*/, async (args) => {
-    try {
-      const updatedSchedule = await homeButtonHandler(args, state.schedule)
-      if (updatedSchedule) {
-        state.schedule = updatedSchedule
-        await saveSchedule(updatedSchedule)
-      }
-    } catch (error) {
-      logger.error({ err: error, msg: 'Error handling home button' })
-    }
-  })
-
-  app.action('select_week', async ({ ack, body, client }) => {
-    try {
-      await ack()
-      const action = (body as any).actions[0]
-      const week = parseInt(action.selected_option.value)
-
-      await client.views.publish({
-        user_id: body.user.id,
-        view: {
-          type: 'home',
-          blocks: generateBlocks(state.schedule, true, week),
-        },
-      })
-    } catch (error) {
-      logger.error({ err: error, msg: 'Error handling week selection' })
-    }
+    await tryCatch(
+      async () =>
+        officeCommandHandler(
+          { command, context, ...rest },
+          schedule,
+          context.teamId!,
+        ),
+      'Error handling office command',
+    )
   })
 }

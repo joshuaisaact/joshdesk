@@ -1,5 +1,12 @@
+import { AttendanceStatus } from '../constants'
+
+export interface Attendee {
+  userId: string
+  status: AttendanceStatus
+}
+
 export interface DaySchedule {
-  attendees: string[]
+  attendees: Attendee[]
   date: number
   month: number
   year: number
@@ -11,9 +18,4 @@ export interface WeekSchedule {
 
 export type MonthSchedule = {
   [weekIndex: number]: WeekSchedule
-}
-
-export enum AttendanceStatus {
-  Office = 'office',
-  Home = 'home',
 }
