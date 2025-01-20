@@ -8,7 +8,6 @@ import {
 } from './parts'
 import { getWeather } from '../utils/weather'
 import { getWorkspaceSettings } from '../services/storage'
-import { checkIfAdmin } from '../utils/slack.ts'
 
 export const generateBlocks = async (
   monthSchedule: MonthSchedule,
@@ -16,7 +15,7 @@ export const generateBlocks = async (
   currentWeek: number = 0,
   userId: string,
   teamId: string,
-  isAdmin: boolean,
+  isAdmin: boolean = false,
 ): Promise<(KnownBlock | Block)[]> => {
   const settings = getWorkspaceSettings(teamId)
 

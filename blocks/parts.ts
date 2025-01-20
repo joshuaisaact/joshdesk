@@ -28,6 +28,7 @@ interface CategoryGroup {
   displayName: string
   users: Array<{ userId: string }>
   emptyMessage: string
+  isOffice: boolean
 }
 
 function normalizeUserId(userId: string): string {
@@ -50,12 +51,15 @@ function createCategorySection({
   displayName,
   users,
   emptyMessage,
+  isOffice = false, // Add this parameter
 }: CategoryGroup): KnownBlock {
+  const countSuffix = isOffice ? ` _(${users.length} going)_` : ''
+
   return {
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: `${emoji} ${displayName}\n\n${renderUserList(users, emptyMessage)}`,
+      text: `${emoji} ${displayName}${countSuffix}\n\n${renderUserList(users, emptyMessage)}`,
     },
   }
 }
@@ -316,15 +320,21 @@ export function createDayBlock(
       displayName: category.displayName,
       users: usersByCategory[category.id] || [],
       emptyMessage: getEmptyMessage(category.id),
+      isOffice: category.id === 'office', // Add this
     }
 
     if (index === enabledCategories.length - 1 && isHomeView) {
       // For the last category, create a section with both category and status selector
+      const countSuffix =
+        category.id === 'office'
+          ? ` _(${usersByCategory[category.id]?.length || 0} going)_`
+          : ''
+
       blocks.push({
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `${category.emoji} ${category.displayName}\n\n${renderUserList(
+          text: `${category.emoji} ${category.displayName}${countSuffix}\n\n${renderUserList(
             usersByCategory[category.id] || [],
             getEmptyMessage(category.id),
           )}`,

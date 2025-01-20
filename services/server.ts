@@ -12,7 +12,7 @@ export const startServer = async (slackApp: App) => {
   // Start landing page server
   serve({
     port: process.env.WEB_PORT || 3001,
-    fetch(req) {
+    async fetch(req) {
       const url = new URL(req.url)
 
       // Route based on pathname
@@ -37,6 +37,54 @@ export const startServer = async (slackApp: App) => {
               'Cache-Control': 'public, max-age=3600',
             },
           })
+
+        // Handle static files from /media directory
+        case url.pathname.startsWith('/media/') && url.pathname:
+          try {
+            const file = Bun.file(`./public${url.pathname}`)
+            const exists = await file.exists()
+
+            if (!exists) {
+              return new Response('Not Found', { status: 404 })
+            }
+
+            // Set appropriate content type based on file extension
+            const contentType = url.pathname.endsWith('.gif')
+              ? 'image/gif'
+              : url.pathname.endsWith('.webp')
+                ? 'image/webp'
+                : 'application/octet-stream'
+
+            return new Response(file, {
+              headers: {
+                'Content-Type': contentType,
+                'Cache-Control': 'public, max-age=86400',
+              },
+            })
+          } catch (error) {
+            console.error('Error serving static file:', error)
+            return new Response('Internal Server Error', { status: 500 })
+          }
+
+        // Handle other static files (favicon, etc)
+        case url.pathname.startsWith('/') && url.pathname:
+          try {
+            const file = Bun.file(`./public${url.pathname}`)
+            const exists = await file.exists()
+
+            if (!exists) {
+              return new Response('Not Found', { status: 404 })
+            }
+
+            return new Response(file, {
+              headers: {
+                'Cache-Control': 'public, max-age=86400',
+              },
+            })
+          } catch (error) {
+            console.error('Error serving static file:', error)
+            return new Response('Internal Server Error', { status: 500 })
+          }
 
         default:
           return new Response('Not Found', { status: 404 })

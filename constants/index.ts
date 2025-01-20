@@ -10,7 +10,12 @@ export const AttendanceStatus = {
 export type AttendanceStatus =
   (typeof AttendanceStatus)[keyof typeof AttendanceStatus]
 
-export const WEEK_LABELS = ['This Week', 'Next Week', 'Week 3', 'Week 4']
+export const WEEK_LABELS = [
+  '📅 This Week',
+  '📅 Next Week',
+  '📅 Week 3',
+  '📅 Week 4',
+]
 
 export const DB_PATH = join(import.meta.dir, '..', 'data', 'joshdesk.db')
 

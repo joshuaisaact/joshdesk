@@ -80,13 +80,3 @@ const handleAttendanceButton = async (
 
   return updatedSchedule
 }
-
-export const officeButtonHandler = (
-  args: ButtonHandlerArgs,
-  schedule: MonthSchedule,
-) => handleAttendanceButton(args, schedule, AttendanceStatus.OFFICE)
-
-export const homeButtonHandler = (
-  args: ButtonHandlerArgs,
-  schedule: MonthSchedule,
-) => handleAttendanceButton(args, schedule, AttendanceStatus.REMOTE)
