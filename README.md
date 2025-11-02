@@ -1,5 +1,3 @@
-## README.md
-
 <p align="center">
   <img src="docs/logo.png" alt="Josh Desk Logo" width="150"/>
 </p>
