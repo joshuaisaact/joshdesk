@@ -17,7 +17,7 @@
 - 4-week schedule visibility
 - Easy office/WFH status updates
 - Automatic weekly schedule reset every Friday at 12:00 PM
-- Data persistence between app restarts
+- Weather forecast to plan WFH days
 
 ## Slack App Configuration
 
