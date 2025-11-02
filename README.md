@@ -1,8 +1,18 @@
 ## README.md
 
-# JoshDesk
+<p align="center">
+  <img src="docs/logo.png" alt="Josh Desk Logo" width="150"/>
+</p>
 
-A Slack app for booking desks.
+<h1 align="center">JoshDesk</h1>
+
+<p align="center">A Slack app for booking desks.</p>
+
+## Demo
+
+<p align="center">
+  <img src="docs/media/deskselect.gif" alt="Desk selection demo" width="600"/>
+</p>
 
 ## Features
 
